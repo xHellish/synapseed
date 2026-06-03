@@ -1,0 +1,104 @@
+// SynapSeed Database Schema
+// Motor: PostgreSQL 16 + pgvector 0.8
+// Plataforma de recomendación de agroquímicos para agricultores costarricenses
+
+Project SynapSeed {
+  database_type: 'PostgreSQL'
+  Note: '''
+    Esquema de base de datos para SynapSeed.
+    Incluye tablas transaccionales, búsqueda vectorial (pgvector),
+    y auditoría de acciones.
+  '''
+}
+
+//  USUARIOS 
+
+Table users {
+  id uuid [pk, default: `gen_random_uuid()`, note: 'Identificador único']
+  identification int [unique, not null, note: 'Identificación agricultor']
+  email varchar(255) [unique, not null, note: 'Correo electrónico del usuario']
+  password_hash varchar(255) [not null, note: 'Hash bcrypt del password']
+  full_name varchar(255) [not null, note: 'Nombre completo']
+  pimpa_exempt boolean [default: false, note: 'Si tiene exención de impuestos PIMPA']
+  is_active boolean [default: true]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+// DISTRIBUIDORES
+
+Table distributors {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(255) [not null, note: 'Nombre del distribuidor']
+  website varchar(500) [note: 'Sitio web']
+  region varchar(100) [note: 'Región de operación en Costa Rica']
+  contact_email varchar(255)
+  contact_phone varchar(50)
+  is_active boolean [default: true]
+  created_at timestamptz [default: `now()`]
+}
+
+// PRODUCTOS AGROQUÍMICOS
+
+Table products {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(255) [not null, note: 'Nombre comercial del producto']
+  active_ingredient varchar(255) [note: 'Ingrediente activo']
+  description text [note: 'Descripción técnica']
+  category varchar(100) [not null, note: 'herbicide | fungicide | insecticide | fertilizer | biocontrol']
+  formulation varchar(100) [note: 'liquid | granular | powder | emulsion']
+  concentration varchar(100) [note: 'Concentración del ingrediente activo']
+  dosage_per_hectare varchar(255) [note: 'Dosis recomendada por hectárea']
+  application_method varchar(255) [note: 'Método de aplicación']
+  safety_interval_days int [note: 'Período de seguridad pre-cosecha (días)']
+  price float [note: 'Precio unitario']
+  distributor_id uuid [ref: > distributors.id, note: 'FK al distribuidor']
+  sfe_registration varchar(50) [note: 'Número de registro del SFE']
+  sfe_status varchar(50) [default: 'active', note: 'active | expired | revoked']
+  sfe_expiry_date date [note: 'Fecha de vencimiento del registro SFE']
+  pimpa_eligible boolean [default: true, note: 'Si es elegible para exención PIMPA']
+  toxicity_band varchar(20) [note: 'I | II | III | IV — Banda toxicológica']
+  is_active boolean [default: true]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    category [name: 'ix_products_category']
+    sfe_registration [name: 'ix_products_sfe_reg']
+    distributor_id [name: 'ix_products_distributor']
+    sfe_status [name: 'ix_products_sfe_status']
+  }
+}
+
+// RECOMENDACIONES LOG
+
+Table recommendation_logs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, note: 'FK al usuario que recibió la recomendación']
+  product_id uuid [ref: > products.id, note: 'FK al producto recomendado']
+  recommendation_reason text [note: 'Razón de la recomendación']
+  created_at timestamptz [default: `now()`]
+}
+
+// RESEÑAS DE PRODUCTOS
+
+Table product_reviews {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, note: 'FK al usuario que hizo la reseña']
+  product_id uuid [ref: > products.id, note: 'FK al producto reseñado']
+  rating int [not null, note: 'Calificación del 1 al 5']
+  comment text [note: 'Comentario del usuario']
+  created_at timestamptz [default: `now()`]
+}
+
+// ZONAS DE CULTIVO
+
+Table cultivation_zones {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(255) [not null, note: 'Nombre de la zona de cultivo']
+  humidity varchar(100) [note: 'Nivel de humedad']
+  temperature int [note: 'Rango de temperatura promedio (°C)']
+  soil_type varchar(100) [note: 'Tipo de suelo predominante']
+  owner_id uuid [ref: > users.id, note: 'FK al usuario propietario de la zona']
+  created_at timestamptz [default: `now()`]
+}
