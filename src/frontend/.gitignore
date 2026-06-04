@@ -1,0 +1,47 @@
+# ============================================
+# SynapSeed — Frontend .gitignore
+# ============================================
+# (complementa el .gitignore raíz del repo)
+
+# Dependencias
+node_modules/
+.pnp
+.pnp.js
+.yarn/
+
+# Build
+dist/
+dist-ssr/
+build/
+.vite/
+*.tsbuildinfo
+
+# Test
+coverage/
+playwright-report/
+test-results/
+playwright/.cache/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Entornos
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDEs
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# OS
+.DS_Store
+Thumbs.db

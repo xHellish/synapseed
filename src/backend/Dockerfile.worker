@@ -1,0 +1,46 @@
+# ============================================
+# SynapSeed — Worker Dockerfile (Celery + LangGraph)
+# ============================================
+# Imagen separada para el worker que ejecuta el pipeline IA.
+# Comparte la base con el backend pero su entrypoint es Celery.
+
+FROM python:3.12-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONFAULTHANDLER=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+        libpq-dev \
+        gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base
+
+COPY pyproject.toml ./
+COPY app ./app
+
+RUN pip install --upgrade pip && \
+    pip install -e ".[dev]" && \
+    rm -rf /root/.cache/pip
+
+# Healthcheck: Celery responde a ping
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD celery -A app.workers.celery_app inspect ping || exit 1
+
+# Worker de Celery:
+#   - concurrency=1     → un caso a la vez (recomendación del spec)
+#   - prefetch=1        → toma una tarea a la vez
+#   - time_limit=600s   → 10 min max por tarea (evita que se cuelgue)
+CMD ["sh", "-c", "celery -A app.workers.celery_app worker \
+        --loglevel=info \
+        --concurrency=1 \
+        --prefetch-multiplier=1 \
+        --time-limit=600 \
+        --max-tasks-per-child=50"]

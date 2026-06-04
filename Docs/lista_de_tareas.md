@@ -8,12 +8,12 @@
 
 ## 📁 0. Infraestructura y Setup del Repositorio
 
-- [ ] **0.1** Crear la carpeta `src/backend/` y `src/frontend/` dentro del proyecto
-- [ ] **0.2** Crear `docker-compose.yml` con servicios: `postgres`, `redis`, `backend`, `frontend`, `worker`
-- [ ] **0.3** Crear `src/backend/pyproject.toml` con todas las dependencias (FastAPI, SQLAlchemy, Alembic, Celery, LangGraph, pgvector, etc.)
-- [ ] **0.4** Crear `src/frontend/package.json` e inicializar proyecto Vite + React + TypeScript
-- [ ] **0.5** Crear archivo `.env.example` con todas las variables necesarias (DB, Redis, JWT_SECRET, GEMINI_API_KEY)
-- [ ] **0.6** Actualizar `README.md` con instrucciones para correr el proyecto localmente
+- [x] **0.1** Crear la carpeta `src/backend/` y `src/frontend/` dentro del proyecto
+- [x] **0.2** Crear `docker-compose.yml` con servicios: `postgres`, `redis`, `backend`, `frontend`, `worker`
+- [x] **0.3** Crear `src/backend/pyproject.toml` con todas las dependencias (FastAPI, SQLAlchemy, Alembic, Celery, LangGraph, pgvector, etc.)
+- [x] **0.4** Crear `src/frontend/package.json` e inicializar proyecto Vite + React + TypeScript
+- [x] **0.5** Crear archivo `.env.example` con todas las variables necesarias (DB, Redis, JWT_SECRET, GEMINI_API_KEY)
+- [x] **0.6** Actualizar `README.md` con instrucciones para correr el proyecto localmente
 
 ---
 
@@ -73,7 +73,7 @@
 
 ## 🤖 3. Pipeline de Agentes IA (LangGraph + Celery)
 
-- [ ] **3.1** Configurar `Celery` con Redis como broker — crear `src/backend/app/workers/celery_app.py`
+- [x] **3.1** Configurar `Celery` con Redis como broker — crear `src/backend/app/workers/celery_app.py` *(esqueleto: broker/backend conectados a Redis; sin tareas registradas aun)*
 - [ ] **3.2** Crear **Agente 1 — Analizador de Contexto**: recibe el formulario del agricultor (todos los dropdowns), produce un resumen agronómico estructurado usando Gemini
 - [ ] **3.3** Crear **Agente 2 — Investigador (RAG)**: hace búsqueda vectorial semántica con pgvector sobre la tabla `products`, filtra candidatos relevantes al problema y cultivo
 - [ ] **3.4** Crear **Agente 3 — Validador Legal**: cruza productos candidatos con la tabla `regulations`, descarta los que tengan sustancias prohibidas o incompatibilidades, usando Gemini para interpretar la normativa
@@ -165,3 +165,18 @@
 | 🟡 **Medio** | 5. Frontend | Depende de diseño + API listos |
 | 🟢 **Normal** | 6. Testing | En paralelo con desarrollo |
 | 🟢 **Normal** | 7. Deploy | Al final, antes del demo |
+
+---
+
+## 🛠️ Fixes aplicados en esta sesión (Docker / Build)
+
+> Fecha: 6 jun 2026 — para que el `docker compose up --build -d` levante sin errores.
+
+- [x] **FIX-1** Eliminar `google-generativeai==0.8.4` de `pyproject.toml` (redundante con `langchain-google-genai`; causaba `ResolutionImpossible` por pin incompatible con `google-ai-generativelanguage`).
+- [x] **FIX-2** Subir `langchain-core` a `==0.3.62` (satisfacer `langchain-google-genai 2.1.5` que exige `>=0.3.62`).
+- [x] **FIX-3** Reemplazar `pip cache purge` por `rm -rf /root/.cache/pip` en `Dockerfile` y `Dockerfile.worker` (incompatible con `PIP_NO_CACHE_DIR=1`).
+- [x] **FIX-4** `alembic upgrade head` tolerante a fallo en `docker-compose.yml` (`|| true`) porque la carpeta `alembic/` con migraciones aún no existe (Fase 1 pendiente).
+- [x] **FIX-5** Añadir `COPY alembic.ini ./` al `Dockerfile` del backend.
+- [x] **FIX-6** Crear `app/workers/__init__.py` + `app/workers/celery_app.py` (esqueleto Celery) para que el worker arranque.
+- [x] **FIX-7** `command` del worker en una sola línea (el `>` multilínea se rompía con `sh -c`).
+- [x] **FIX-8** Entorno docker limpio: `docker compose down --volumes --remove-orphans`. Próximo `docker compose up --build -d` levanta from-scratch (5/5 servicios healthy verificado).

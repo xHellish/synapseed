@@ -1,1 +1,88 @@
-# Docs
+# ============================================
+# SynapSeed — .gitignore
+# ============================================
+
+# --- Python / Backend ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.coverage.*
+.tox/
+.venv/
+venv/
+env/
+ENV/
+
+# --- Node / Frontend ---
+node_modules/
+dist/
+dist-ssr/
+build/
+*.local
+.vite/
+.turbo/
+coverage/
+
+# --- Logs y temporales ---
+*.log
+logs/
+*.pid
+*.seed
+*.pid.lock
+.pnpm-debug.log*
+
+# --- Entornos y secrets ---
+.env
+.env.local
+.env.*.local
+.env.development
+.env.staging
+.env.production
+!.env.example
+
+# --- IDEs y editores ---
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- Datos sensibles / semillas locales ---
+data/raw/
+data/exports/
+*.csv
+*.json
+!package.json
+!tsconfig.json
+
+# --- Documentación generada ---
+Docs/_build/
+site/
+.mkdocs/
+
+# --- Cache de herramientas ---
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# --- Pruebas de Playwright ---
+test-results/
+playwright-report/
+playwright/.cache/

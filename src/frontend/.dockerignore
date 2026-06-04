@@ -1,0 +1,33 @@
+# ============================================
+# SynapSeed — Frontend .dockerignore
+# ============================================
+
+node_modules/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+.env
+.env.local
+.env.*.local
+!.env.example
+
+*.log
+npm-debug.log*
+
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+.git/
+.gitignore
+
+README.md
+*.md

@@ -1,0 +1,149 @@
+# ============================================
+# SynapSeed — Docker Compose (desarrollo local)
+# ============================================
+# Levanta todo el stack: postgres+pgvector, redis, backend, worker y frontend.
+# Uso: docker compose up -d
+
+services:
+  # -----------------------------------------------------------
+  # PostgreSQL 16 con extensión pgvector
+  # -----------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: synapseed-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-synapseed}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-synapseed}
+      POSTGRES_DB: ${POSTGRES_DB:-synapseed}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./Docs/database/create_tables.sql:/docker-entrypoint-initdb.d/01_create_tables.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-synapseed} -d ${POSTGRES_DB:-synapseed}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - synapseed-net
+
+  # -----------------------------------------------------------
+  # Redis 7 (broker de Celery + cache + pub/sub para SSE)
+  # -----------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: synapseed-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - synapseed-net
+
+  # -----------------------------------------------------------
+  # Backend — FastAPI (uvicorn con autoreload)
+  # -----------------------------------------------------------
+  backend:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: synapseed-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-synapseed}:${POSTGRES_PASSWORD:-synapseed}@postgres:5432/${POSTGRES_DB:-synapseed}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./src/backend/app:/app/app
+      - ./src/backend/tests:/app/tests
+    command: >
+      sh -c "alembic upgrade head 2>/dev/null || true;
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    networks:
+      - synapseed-net
+
+  # -----------------------------------------------------------
+  # Worker — Celery ejecutando el pipeline LangGraph
+  # -----------------------------------------------------------
+  worker:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile.worker
+    container_name: synapseed-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-synapseed}:${POSTGRES_PASSWORD:-synapseed}@postgres:5432/${POSTGRES_DB:-synapseed}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    volumes:
+      - ./src/backend/app:/app/app
+    command: >
+      sh -c "celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --prefetch-multiplier=1"
+    networks:
+      - synapseed-net
+
+  # -----------------------------------------------------------
+  # Frontend — Vite dev server
+  # -----------------------------------------------------------
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    container_name: synapseed-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:${BACKEND_PORT:-8000}/api/v1
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./src/frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    networks:
+      - synapseed-net
+
+# ============================================
+# Volúmenes y redes
+# ============================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  frontend_node_modules:
+    driver: local
+
+networks:
+  synapseed-net:
+    driver: bridge
