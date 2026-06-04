@@ -1,6 +1,7 @@
 // SynapSeed Database Schema
 // Motor: PostgreSQL 16 + pgvector 0.8
 // Plataforma de recomendación de agroquímicos para agricultores costarricenses
+// NOTA: Solo información y recomendaciones. No hay compras ni pagos.
 
 Project SynapSeed {
   database_type: 'PostgreSQL'
@@ -11,53 +12,82 @@ Project SynapSeed {
   '''
 }
 
-//  USUARIOS 
+// ─── USUARIOS ────────────────────────────────────────────────
 
 Table users {
   id uuid [pk, default: `gen_random_uuid()`, note: 'Identificador único']
-  identification int [unique, not null, note: 'Identificación agricultor']
-  email varchar(255) [unique, not null, note: 'Correo electrónico del usuario']
+  identification varchar(20) [unique, not null, note: 'Cédula del usuario (se usa para login)']
+  email varchar(255) [unique, not null, note: 'Correo electrónico']
   password_hash varchar(255) [not null, note: 'Hash bcrypt del password']
   full_name varchar(255) [not null, note: 'Nombre completo']
-  pimpa_exempt boolean [default: false, note: 'Si tiene exención de impuestos PIMPA']
+  phone varchar(50) [not null, note: 'Número de teléfono']
   is_active boolean [default: true]
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
+
+  indexes {
+    identification [unique, name: 'ix_users_identification']
+    email [unique, name: 'ix_users_email']
+  }
 }
 
-// DISTRIBUIDORES
+// ─── ZONAS DE CULTIVO (Fincas) ───────────────────────────────
+// El usuario agrega zonas/fincas para ahorrar contexto en solicitudes.
+// Al crear una recomendación, puede seleccionar una zona existente
+// o elegir "Ninguna" y llenar los datos manualmente.
+
+Table zones {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null, note: 'FK al propietario']
+  name varchar(255) [not null, note: 'Nombre de la zona o finca']
+  soil_type varchar(100) [not null, note: 'arcilloso | arenoso | limoso | franco | franco-arcilloso | franco-arenoso']
+  humidity varchar(50) [not null, note: 'baja | media | alta']
+  temperature varchar(50) [not null, note: '< 15°C | 15-20°C | 20-25°C | 25-30°C | > 30°C']
+  water_quality varchar(50) [not null, note: 'buena | regular | mala']
+  location varchar(255) [note: 'Ubicación o dirección de la finca']
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    user_id [name: 'ix_zones_user']
+  }
+}
+
+// ─── DISTRIBUIDORES / PROVEEDORES ────────────────────────────
+// Información de contacto de los proveedores de agroquímicos.
+// El usuario puede ver estos datos y contactar vía email.
 
 Table distributors {
   id uuid [pk, default: `gen_random_uuid()`]
-  name varchar(255) [not null, note: 'Nombre del distribuidor']
+  name varchar(255) [not null, note: 'Nombre del proveedor/distribuidor']
+  email varchar(255) [note: 'Correo de contacto']
+  phone varchar(50) [note: 'Teléfono de contacto']
+  location varchar(255) [note: 'Ubicación física del proveedor']
   website varchar(500) [note: 'Sitio web']
-  region varchar(100) [note: 'Región de operación en Costa Rica']
-  contact_email varchar(255)
-  contact_phone varchar(50)
   is_active boolean [default: true]
   created_at timestamptz [default: `now()`]
 }
 
-// PRODUCTOS AGROQUÍMICOS
+// ─── PRODUCTOS AGROQUÍMICOS ─────────────────────────────────
+// Catálogo de productos con embeddings vectoriales para búsqueda semántica.
 
 Table products {
   id uuid [pk, default: `gen_random_uuid()`]
   name varchar(255) [not null, note: 'Nombre comercial del producto']
   active_ingredient varchar(255) [note: 'Ingrediente activo']
   description text [note: 'Descripción técnica']
-  category varchar(100) [not null, note: 'herbicide | fungicide | insecticide | fertilizer | biocontrol']
-  formulation varchar(100) [note: 'liquid | granular | powder | emulsion']
+  category varchar(100) [not null, note: 'herbicida | fungicida | insecticida | fertilizante | biocontrol']
+  formulation varchar(100) [note: 'líquido | granular | polvo | emulsión']
   concentration varchar(100) [note: 'Concentración del ingrediente activo']
   dosage_per_hectare varchar(255) [note: 'Dosis recomendada por hectárea']
   application_method varchar(255) [note: 'Método de aplicación']
   safety_interval_days int [note: 'Período de seguridad pre-cosecha (días)']
-  price float [note: 'Precio unitario']
-  distributor_id uuid [ref: > distributors.id, note: 'FK al distribuidor']
+  price_per_liter float [note: 'Precio por litro en CRC']
+  distributor_id uuid [ref: > distributors.id, note: 'FK al distribuidor/proveedor']
   sfe_registration varchar(50) [note: 'Número de registro del SFE']
   sfe_status varchar(50) [default: 'active', note: 'active | expired | revoked']
-  sfe_expiry_date date [note: 'Fecha de vencimiento del registro SFE']
-  pimpa_eligible boolean [default: true, note: 'Si es elegible para exención PIMPA']
   toxicity_band varchar(20) [note: 'I | II | III | IV — Banda toxicológica']
+  embedding "vector(768)" [note: 'Embedding para búsqueda semántica (pgvector)']
   is_active boolean [default: true]
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
@@ -66,39 +96,117 @@ Table products {
     category [name: 'ix_products_category']
     sfe_registration [name: 'ix_products_sfe_reg']
     distributor_id [name: 'ix_products_distributor']
-    sfe_status [name: 'ix_products_sfe_status']
   }
 }
 
-// RECOMENDACIONES LOG
+// ─── RECOMENDACIONES ─────────────────────────────────────────
+// Cada solicitud de recomendación con todo el contexto del caso,
+// el estado del pipeline de agentes, y el resultado final.
 
-Table recommendation_logs {
+Table recommendations {
   id uuid [pk, default: `gen_random_uuid()`]
-  user_id uuid [ref: > users.id, note: 'FK al usuario que recibió la recomendación']
-  product_id uuid [ref: > products.id, note: 'FK al producto recomendado']
-  recommendation_reason text [note: 'Razón de la recomendación']
+  ticket_id varchar(100) [unique, not null, note: 'ID público para tracking SSE']
+  user_id uuid [ref: > users.id, not null]
+  zone_id uuid [ref: > zones.id, note: 'FK zona seleccionada (null si eligió "Ninguna")']
+  status varchar(50) [default: 'pending', note: 'pending | analyzing | researching | validating | synthesizing | completed | failed']
+
+  // ─── Contexto del caso (todos dropdowns) ───
+  crop varchar(100) [not null, note: 'Cultivo seleccionado']
+  crop_stage varchar(100) [not null, note: 'Etapa del cultivo']
+  affected_area varchar(100) [not null, note: 'Área afectada']
+  soil_type varchar(100) [not null, note: 'Tipo de suelo (del dropdown o de la zona)']
+  humidity varchar(50) [not null, note: 'Nivel de humedad']
+  temperature varchar(50) [not null, note: 'Rango de temperatura']
+  water_quality varchar(50) [not null, note: 'Calidad del agua']
+  problem_to_solve varchar(255) [not null, note: 'Problema que desea resolver']
+  last_agrochemical varchar(255) [note: 'Último agroquímico usado (o "ninguno")']
+  max_budget_per_liter varchar(100) [note: 'Presupuesto máximo por litro']
+
+  // ─── Resultados de cada agente (JSON) ───
+  agent_context jsonb [note: 'Output del Agente Analizador de Contexto']
+  agent_research jsonb [note: 'Output del Agente Investigador (RAG)']
+  agent_validation jsonb [note: 'Output del Agente Validador Legal']
+  final_recommendation jsonb [note: 'Output del Agente Sintetizador']
+
+  processing_time_ms int [note: 'Tiempo de procesamiento en ms']
+  error_message text [note: 'Mensaje de error si falló']
   created_at timestamptz [default: `now()`]
+  completed_at timestamptz
+
+  indexes {
+    ticket_id [unique, name: 'ix_recommendations_ticket']
+    user_id [name: 'ix_recommendations_user']
+    status [name: 'ix_recommendations_status']
+    (user_id, created_at) [name: 'ix_recommendations_user_date']
+  }
 }
 
-// RESEÑAS DE PRODUCTOS
+// ─── PRODUCTOS RECOMENDADOS ──────────────────────────────────
+// Siempre 3 productos por recomendación, con datos comparativos.
 
-Table product_reviews {
+Table recommendation_products {
   id uuid [pk, default: `gen_random_uuid()`]
-  user_id uuid [ref: > users.id, note: 'FK al usuario que hizo la reseña']
-  product_id uuid [ref: > products.id, note: 'FK al producto reseñado']
-  rating int [not null, note: 'Calificación del 1 al 5']
-  comment text [note: 'Comentario del usuario']
+  recommendation_id uuid [ref: > recommendations.id, not null]
+  product_id uuid [ref: > products.id, not null]
+  rank int [not null, note: '1, 2 o 3 — orden de recomendación']
+  justification text [not null, note: 'Por qué se recomienda este producto']
+  recommended_dosage varchar(255) [note: 'Dosis recomendada para el caso']
+  estimated_cost float [note: 'Costo estimado para el área']
+  compatibility_notes text [note: 'Notas de compatibilidad con el cultivo/zona']
   created_at timestamptz [default: `now()`]
+
+  indexes {
+    recommendation_id [name: 'ix_rec_products_rec']
+    product_id [name: 'ix_rec_products_product']
+  }
 }
 
-// ZONAS DE CULTIVO
+// ─── REGULACIONES ────────────────────────────────────────────
+// Normativas del SFE/MAG para validación legal de productos.
 
-Table cultivation_zones {
+Table regulations {
   id uuid [pk, default: `gen_random_uuid()`]
-  name varchar(255) [not null, note: 'Nombre de la zona de cultivo']
-  humidity varchar(100) [note: 'Nivel de humedad']
-  temperature int [note: 'Rango de temperatura promedio (°C)']
-  soil_type varchar(100) [note: 'Tipo de suelo predominante']
-  owner_id uuid [ref: > users.id, note: 'FK al usuario propietario de la zona']
+  regulation_code varchar(100) [unique, not null, note: 'Código de la normativa']
+  title varchar(500) [not null, note: 'Título de la regulación']
+  issuing_body varchar(100) [not null, note: 'SFE | MAG | SENASA']
+  description text
+  prohibited_substances jsonb [note: 'Lista de sustancias prohibidas']
+  restricted_crops jsonb [note: 'Restricciones por tipo de cultivo']
+  is_active boolean [default: true]
+  source_url varchar(500) [note: 'URL fuente del documento oficial']
+  embedding "vector(768)" [note: 'Embedding para búsqueda semántica']
   created_at timestamptz [default: `now()`]
+
+  indexes {
+    regulation_code [unique, name: 'ix_regulations_code']
+    issuing_body [name: 'ix_regulations_issuer']
+  }
 }
+
+// ─── AUDITORÍA ───────────────────────────────────────────────
+
+Table audit_logs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id]
+  action varchar(100) [not null, note: 'login | register | create_recommendation | update_profile | etc']
+  entity_type varchar(100) [note: 'Tipo de entidad afectada']
+  entity_id uuid [note: 'ID de la entidad afectada']
+  details jsonb [note: 'Detalles adicionales']
+  ip_address varchar(45)
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    user_id [name: 'ix_audit_user']
+    action [name: 'ix_audit_action']
+    created_at [name: 'ix_audit_date']
+  }
+}
+
+// ─── RELACIONES ──────────────────────────────────────────────
+// users 1──∞ zones
+// users 1──∞ recommendations
+// users 1──∞ audit_logs
+// zones 1──∞ recommendations (opcional)
+// distributors 1──∞ products
+// recommendations 1──3 recommendation_products
+// products 1──∞ recommendation_products

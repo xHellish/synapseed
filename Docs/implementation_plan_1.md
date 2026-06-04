@@ -7,12 +7,11 @@ Plan maestro que cubre las 5 etapas de la asignación: prototipado UX, diseño d
 - **TailwindCSS:** v4 (CSS-first, sin `tailwind.config.js`)
 - **Cola de tareas MVP:** Celery + Redis
 - **Orquestación IA:** LangGraph 1.2 + LangChain 1.x
-- **Stripe:** Diseño completo, implementación como mock/stub en MVP
+- **Propósito:** Solo información y recomendaciones. **Nada de compras ni pagos.**
 - **Identidad visual:** Paleta verde (a definir sistema de diseño completo)
-- **Prototipo UX:** No existe aún en Figma — se creará durante la implementación
 - **Datos semilla:** Productos reales del SFE disponibles públicamente
 - **Regulaciones SFE/MAG:** Accesibles públicamente, se investigarán
-- **Dominio:** URLs de AWS para el MVP (sin dominio propio)
+- **Formularios:** Todos los campos del wizard usan **dropdowns (Select)**, no text inputs
 
 
 
@@ -24,13 +23,14 @@ La estructura final del repositorio será:
 
 ```
 SynapSeed/
-├── frontend/                # React + Vite + TypeScript
-├── backend/                 # FastAPI + Python
+├── src/
+│   ├── frontend/            # React + Vite + TypeScript
+│   └── backend/             # FastAPI + Python
 ├── Docs/                    # Documentación del proyecto
 │   ├── Caso2_asignacion_entrega.md
 │   ├── Spec_validada.md
-│   ├── arquitectura/        # Diagramas y documentos de diseño
-│   └── database/            # DBML, ERD, scripts
+│   ├── AgentOrchs.md
+│   └── database/            # DBML, ERD
 ├── .github/
 │   └── workflows/           # CI/CD pipelines
 ├── docker-compose.yml       # Desarrollo local
@@ -58,9 +58,11 @@ SynapSeed/
 #### Flujo principal a prototipar
 
 El flujo de recomendación de agroquímicos es el flujo principal:
-1. **Formulario de plan:** Agricultor ingresa cultivo, hectáreas, etapa fenológica, ubicación
-2. **Estado de procesamiento:** Pantalla con progreso en tiempo real (SSE) mostrando cada agente
-3. **Resultado:** Recomendación con productos, dosis, costos, alternativas y validación legal
+1. **Login** con cédula + contraseña (o registro con email, nombre, cédula, teléfono, contraseña)
+2. **Gestión del caso (wizard):** Seleccionar zona → contexto ambiental (si no hay zona) → datos del problema (todo con dropdowns) → pantalla de confirmación
+3. **Estado de procesamiento:** Pantalla con progreso en tiempo real (SSE) mostrando cada agente
+4. **Resultado:** 3 productos recomendados + tabla comparativa + botón "Ver proveedores"
+5. **Proveedores:** Lista con nombre, correo, teléfono, ubicación + botón "Contactar" (mailto:)
 
 ---
 
@@ -97,29 +99,35 @@ frontend/
 │   │   └── ui/                     # shadcn/ui (generados por CLI)
 │   │       ├── button.tsx
 │   │       ├── card.tsx
-│   │       ├── dialog.tsx
-│   │       ├── input.tsx
+│   │       ├── select.tsx          # Dropdown (usado en todo el wizard)
 │   │       └── ...
 │   │
 │   ├── features/                   # Módulos por dominio
 │   │   ├── auth/
-│   │   │   ├── components/         # LoginForm, RegisterForm
-│   │   │   ├── hooks/              # useAuth, useLogin
-│   │   │   ├── services/           # authService.ts (API calls)
-│   │   │   └── types/              # Auth DTOs
-│   │   │
-│   │   ├── recommendations/
-│   │   │   ├── components/         # PlanForm, ProgressTracker, ResultCard
-│   │   │   ├── hooks/              # useCreateRecommendation, useSSEStream
-│   │   │   ├── services/           # recommendationService.ts
+│   │   │   ├── components/         # LoginForm (cédula+password), RegisterForm
+│   │   │   ├── hooks/
+│   │   │   ├── services/
 │   │   │   └── types/
 │   │   │
-│   │   ├── dashboard/
-│   │   │   ├── components/         # StatsOverview, RecentActivity
+│   │   ├── recommendations/
+│   │   │   ├── components/         # ContextWizard, ConfirmationStep,
+│   │   │   │                       # ProgressTracker, ResultView (3 cards),
+│   │   │   │                       # ComparisonTable, ProvidersView
+│   │   │   ├── hooks/              # useCreateRecommendation, useSSEStream
+│   │   │   ├── services/
+│   │   │   └── types/
+│   │   │
+│   │   ├── zones/
+│   │   │   ├── components/         # ZoneList, ZoneForm (modal), ZoneCard
+│   │   │   ├── hooks/
+│   │   │   └── services/
+│   │   │
+│   │   ├── history/
+│   │   │   ├── components/         # HistoryList, HistoryDetail
 │   │   │   └── hooks/
 │   │   │
-│   │   └── products/
-│   │       ├── components/         # ProductCatalog, ProductDetail
+│   │   └── account/
+│   │       ├── components/         # ProfileForm, PasswordForm
 │   │       └── hooks/
 │   │
 │   ├── hooks/                      # Hooks globales compartidos
@@ -133,8 +141,8 @@ frontend/
 │   │
 │   ├── stores/                     # Zustand (estado cliente)
 │   │   ├── authStore.ts            # Token, user, sesión
-│   │   ├── uiStore.ts              # Sidebar, theme, notificaciones
-│   │   └── recommendationStore.ts  # Estado local del wizard
+│   │   ├── uiStore.ts              # Sidebar, theme
+│   │   └── wizardStore.ts          # Estado del wizard de contexto
 │   │
 │   ├── types/                      # Tipos globales
 │   │   ├── api.ts                  # Tipos de respuesta API
@@ -216,12 +224,13 @@ frontend/
 
 | Aspecto | Implementación |
 |---|---|
-| **Autenticación** | JWT via API → access token en Zustand (memoria), refresh token en HttpOnly cookie |
-| **Autorización** | Route guards + role-based rendering (farmer, admin, distributor) |
-| **Token expiry** | Access token 15 min, refresh token 7 días, auto-refresh via interceptor |
+| **Autenticación** | Login con **cédula + contraseña**. JWT access token en Zustand (memoria) |
+| **Registro** | email, nombre completo, cédula, teléfono, contraseña |
+| **Autorización** | Route guards para páginas protegidas |
+| **Token expiry** | JWT 24h, auto-redirect a login si expira |
 | **Sesiones** | Zustand persist (localStorage) para datos no sensibles; tokens en memoria |
-| **OWASP** | CSP headers via CloudFront, XSS sanitization, CSRF con tokens |
-| **Input validation** | Zod schemas compartidos con el backend para validación client-side |
+| **OWASP** | CSP headers, XSS sanitization |
+| **Input validation** | Zod schemas para validación client-side (todos dropdowns, sin texto libre) |
 | **Data masking** | Datos sensibles (cédula, teléfono) enmascarados en UI por defecto |
 
 ##### SSE (Server-Sent Events) — Consumo en React
@@ -370,10 +379,12 @@ backend/
 │   │
 │   ├── api/v1/                     # Routers
 │   │   ├── router.py               # Agrega todos los sub-routers
-│   │   ├── auth.py                 # POST /login, /register, /refresh
-│   │   ├── recommendations.py      # POST /, GET /{id}, GET /{id}/events (SSE)
-│   │   ├── products.py             # GET /, GET /{id}, GET /search
-│   │   └── users.py                # GET /me, PUT /me
+│   │   ├── auth.py                 # POST /login (cédula+password), /register
+│   │   ├── users.py                # GET /me, PUT /me, PUT /me/password
+│   │   ├── zones.py                # CRUD zonas/fincas del usuario
+│   │   ├── recommendations.py      # POST /request, GET /{id}, GET /history, GET /stream/{ticket_id} (SSE)
+│   │   ├── providers.py            # GET /recommendations/{id}/providers
+│   │   └── catalogs.py             # GET /crops, /crop-stages, /soil-types, /problems, etc (dropdowns)
 │   │
 │   ├── core/                       # Cross-cutting
 │   │   ├── security.py             # JWT, hashing, OAuth2
@@ -383,28 +394,33 @@ backend/
 │   │
 │   ├── models/                     # SQLAlchemy ORM
 │   │   ├── base.py                 # DeclarativeBase
-│   │   ├── user.py
-│   │   ├── recommendation.py
+│   │   ├── user.py                 # + identification, phone
+│   │   ├── zone.py                 # Zonas/fincas del usuario
+│   │   ├── recommendation.py       # + recommendation_products
 │   │   ├── product.py
-│   │   ├── distributor.py
+│   │   ├── distributor.py          # + location
 │   │   ├── regulation.py
 │   │   └── audit.py
 │   │
 │   ├── schemas/                    # Pydantic DTOs
-│   │   ├── user.py                 # UserCreate, UserResponse
-│   │   ├── recommendation.py       # FarmerPlan, RecommendationResult
+│   │   ├── user.py                 # UserCreate (email,name,identification,phone,password), UserResponse
+│   │   ├── zone.py                 # ZoneCreate, ZoneResponse
+│   │   ├── recommendation.py       # CaseContext (todos dropdowns), RecommendationResult
 │   │   ├── product.py
+│   │   ├── provider.py             # ProviderResponse (name, email, phone, location)
 │   │   └── common.py              # Pagination, ErrorResponse
 │   │
 │   ├── services/                   # Lógica de negocio
-│   │   ├── auth_service.py
+│   │   ├── auth_service.py         # Login con cédula, registro
+│   │   ├── zone_service.py         # CRUD zonas
 │   │   ├── recommendation_service.py
-│   │   ├── product_service.py
-│   │   └── notification_service.py
+│   │   ├── provider_service.py     # Buscar proveedores por recomendación
+│   │   └── notification_service.py # SSE
 │   │
 │   ├── repositories/              # Acceso a datos
 │   │   ├── base.py                # GenericRepository[T]
-│   │   ├── user_repo.py
+│   │   ├── user_repo.py           # get_by_identification
+│   │   ├── zone_repo.py           # get_by_user_id
 │   │   ├── recommendation_repo.py
 │   │   └── product_repo.py        # Incluye semantic_search()
 │   │
@@ -519,8 +535,8 @@ sequenceDiagram
 
 **4. Agente Sintetizador (Recomendador)**
 - **Input:** Productos validados + contexto + precios
-- **Output:** Recomendación final estructurada (dosis, costo, alternativas)
-- **LLM Role:** Optimizar selección por costo-beneficio, generar texto amigable
+- **Output:** **Exactamente 3 productos** recomendados con tabla comparativa (dosis, costo, toxicidad, método de aplicación)
+- **LLM Role:** Rankear top 3 por costo-beneficio, generar justificación para cada uno
 - **Tools:** Ninguno (solo razonamiento y formato)
 
 ##### Manejo de procesos largos y SSE
@@ -547,15 +563,15 @@ El flujo completo sigue el patrón `HTTP 202 Accepted + SSE`:
 
 | Aspecto | Implementación |
 |---|---|
-| **Auth flow** | `POST /auth/login` → JWT access token (15 min) + refresh token (7 días, HttpOnly cookie) |
+| **Auth flow** | `POST /auth/login` con **cédula (identification) + contraseña** → JWT access token (24h) |
+| **Registro** | `POST /auth/register` con email, full_name, identification, phone, password |
 | **Password hashing** | bcrypt via `passlib` |
-| **JWT** | `python-jose` con HS256, claims: sub, role, exp, iat |
-| **Authorization** | Dependency injection: `get_current_user`, role-based decorators |
+| **JWT** | `python-jose` con HS256, claims: sub, exp, iat |
+| **Authorization** | Dependency injection: `get_current_user` |
 | **CORS** | Middleware con origins específicos (no wildcard en prod) |
-| **Rate limiting** | `slowapi` en endpoints públicos |
 | **Secrets** | Variables de entorno via `pydantic-settings`, nunca en código |
 | **Audit trail** | Tabla `audit_logs` con user, action, entity, IP, timestamp |
-| **OWASP** | SQL injection (ORM), XSS (Pydantic validation), CSRF (SameSite cookies) |
+| **OWASP** | SQL injection (ORM), XSS (Pydantic validation) |
 
 ##### Configuración de entornos
 
@@ -591,46 +607,65 @@ El flujo completo sigue el patrón `HTTP 202 Accepted + SSE`:
 ```dbml
 Project SynapSeed {
   database_type: 'PostgreSQL'
-  Note: 'Plataforma de recomendación de agroquímicos para agricultores costarricenses'
+  Note: 'Plataforma de recomendación de agroquímicos — solo información, sin compras'
 }
 
 Table users {
   id uuid [pk, default: `gen_random_uuid()`]
+  identification varchar(20) [unique, not null, note: 'Cédula — se usa para login']
   email varchar(255) [unique, not null]
   password_hash varchar(255) [not null]
   full_name varchar(255) [not null]
-  farm_name varchar(255)
-  province varchar(100)
-  canton varchar(100)
-  role varchar(50) [default: 'farmer', note: 'farmer | admin | distributor']
-  pimpa_exempt boolean [default: false, note: 'Exención de impuestos PIMPA']
+  phone varchar(50) [not null]
   is_active boolean [default: true]
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
 
   indexes {
+    identification [unique]
     email [unique]
-    role
+  }
+}
+
+Table zones {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  name varchar(255) [not null, note: 'Nombre de la zona o finca']
+  soil_type varchar(100) [not null]
+  humidity varchar(50) [not null]
+  temperature varchar(50) [not null]
+  water_quality varchar(50) [not null]
+  location varchar(255)
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    user_id
   }
 }
 
 Table recommendations {
   id uuid [pk, default: `gen_random_uuid()`]
-  ticket_id varchar(100) [unique, not null, note: 'ID público para tracking']
+  ticket_id varchar(100) [unique, not null, note: 'ID público para tracking SSE']
   user_id uuid [ref: > users.id, not null]
+  zone_id uuid [ref: > zones.id, note: 'Nullable — si eligió Ninguna']
   status varchar(50) [default: 'pending', note: 'pending|analyzing|researching|validating|synthesizing|completed|failed']
-  crop_type varchar(100) [not null]
-  hectares float [not null]
-  phenological_stage varchar(100)
-  location_province varchar(100)
-  location_canton varchar(100)
-  farmer_plan jsonb [not null, note: 'Plan original del agricultor']
-  agent_context jsonb [note: 'Output del Agente Analizador']
-  agent_research jsonb [note: 'Output del Agente Investigador']
-  agent_validation jsonb [note: 'Output del Agente Validador']
-  final_recommendation jsonb [note: 'Output del Agente Sintetizador']
-  total_cost float
-  currency varchar(10) [default: 'CRC']
+  // Contexto del caso (todos dropdowns)
+  crop varchar(100) [not null]
+  crop_stage varchar(100) [not null]
+  affected_area varchar(100) [not null]
+  soil_type varchar(100) [not null]
+  humidity varchar(50) [not null]
+  temperature varchar(50) [not null]
+  water_quality varchar(50) [not null]
+  problem_to_solve varchar(255) [not null]
+  last_agrochemical varchar(255)
+  max_budget_per_liter varchar(100)
+  // Resultados de agentes
+  agent_context jsonb
+  agent_research jsonb
+  agent_validation jsonb
+  final_recommendation jsonb
   processing_time_ms int
   error_message text
   created_at timestamptz [default: `now()`]
@@ -649,21 +684,18 @@ Table products {
   name varchar(255) [not null]
   active_ingredient varchar(255)
   description text
-  category varchar(100) [not null, note: 'herbicide|fungicide|insecticide|fertilizer|biocontrol']
-  formulation varchar(100) [note: 'liquid|granular|powder|emulsion']
+  category varchar(100) [not null, note: 'herbicida|fungicida|insecticida|fertilizante|biocontrol']
+  formulation varchar(100)
   concentration varchar(100)
   dosage_per_hectare varchar(255)
   application_method varchar(255)
-  safety_interval_days int [note: 'Días antes de cosecha']
-  price float
-  currency varchar(10) [default: 'CRC']
+  safety_interval_days int
+  price_per_liter float
   distributor_id uuid [ref: > distributors.id]
-  sfe_registration varchar(50) [note: 'Número de registro SFE']
-  sfe_status varchar(50) [default: 'active', note: 'active|expired|revoked']
-  sfe_expiry_date date
-  pimpa_eligible boolean [default: true]
-  toxicity_band varchar(20) [note: 'I|II|III|IV - Banda toxicológica']
-  embedding "vector(768)" [note: 'pgvector - Gemini embeddings']
+  sfe_registration varchar(50)
+  sfe_status varchar(50) [default: 'active']
+  toxicity_band varchar(20) [note: 'I|II|III|IV']
+  embedding "vector(768)"
   is_active boolean [default: true]
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
@@ -672,17 +704,16 @@ Table products {
     category
     sfe_registration
     distributor_id
-    sfe_status
   }
 }
 
 Table distributors {
   id uuid [pk, default: `gen_random_uuid()`]
   name varchar(255) [not null]
+  email varchar(255) [note: 'Correo de contacto']
+  phone varchar(50)
+  location varchar(255) [note: 'Ubicación física']
   website varchar(500)
-  region varchar(100)
-  contact_email varchar(255)
-  contact_phone varchar(50)
   is_active boolean [default: true]
   created_at timestamptz [default: `now()`]
 }
@@ -691,13 +722,11 @@ Table recommendation_products {
   id uuid [pk, default: `gen_random_uuid()`]
   recommendation_id uuid [ref: > recommendations.id, not null]
   product_id uuid [ref: > products.id, not null]
-  quantity float [not null]
-  unit varchar(50) [not null, note: 'litros|kg|gramos']
-  subtotal float
-  dosage_applied varchar(255)
-  justification text [note: 'Por qué se recomienda este producto']
-  alternative_product_id uuid [ref: > products.id, note: 'Alternativa más económica']
-  is_group_purchase boolean [default: false, note: 'Si aplica compra conjunta']
+  rank int [not null, note: '1, 2 o 3']
+  justification text [not null]
+  recommended_dosage varchar(255)
+  estimated_cost float
+  compatibility_notes text
   created_at timestamptz [default: `now()`]
 
   indexes {
@@ -712,57 +741,33 @@ Table regulations {
   title varchar(500) [not null]
   issuing_body varchar(100) [not null, note: 'SFE|MAG|SENASA']
   description text
-  prohibited_substances jsonb [note: 'Lista de sustancias prohibidas']
-  restricted_crops jsonb [note: 'Restricciones por cultivo']
-  effective_date date
-  expiry_date date
+  prohibited_substances jsonb
+  restricted_crops jsonb
   is_active boolean [default: true]
   source_url varchar(500)
-  embedding "vector(768)" [note: 'Para búsqueda semántica de regulaciones']
+  embedding "vector(768)"
   created_at timestamptz [default: `now()`]
-  updated_at timestamptz [default: `now()`]
 
   indexes {
     regulation_code [unique]
     issuing_body
-    is_active
   }
 }
 
 Table audit_logs {
   id uuid [pk, default: `gen_random_uuid()`]
   user_id uuid [ref: > users.id]
-  action varchar(100) [not null, note: 'login|logout|create_recommendation|view_product|etc']
+  action varchar(100) [not null]
   entity_type varchar(100)
   entity_id uuid
   details jsonb
   ip_address varchar(45)
-  user_agent text
   created_at timestamptz [default: `now()`]
 
   indexes {
     user_id
     action
     created_at
-    (entity_type, entity_id)
-  }
-}
-
-Table subscriptions {
-  id uuid [pk, default: `gen_random_uuid()`]
-  user_id uuid [ref: > users.id, not null]
-  plan varchar(50) [not null, note: 'free|basic|premium']
-  stripe_customer_id varchar(255)
-  stripe_subscription_id varchar(255)
-  status varchar(50) [default: 'active', note: 'active|cancelled|past_due']
-  current_period_start timestamptz
-  current_period_end timestamptz
-  created_at timestamptz [default: `now()`]
-
-  indexes {
-    user_id
-    stripe_customer_id
-    status
   }
 }
 ```
@@ -771,13 +776,13 @@ Table subscriptions {
 
 ```mermaid
 erDiagram
+    users ||--o{ zones : "tiene"
     users ||--o{ recommendations : "solicita"
     users ||--o{ audit_logs : "genera"
-    users ||--o| subscriptions : "tiene"
-    recommendations ||--o{ recommendation_products : "contiene"
+    zones ||--o{ recommendations : "asociada a"
+    recommendations ||--3{ recommendation_products : "contiene (siempre 3)"
     products ||--o{ recommendation_products : "incluido en"
     products }o--|| distributors : "distribuido por"
-    recommendation_products }o--o| products : "alternativa"
 ```
 
 #### Migraciones y versionamiento
@@ -858,20 +863,21 @@ Un solo `docker-compose up` levanta todo el stack.
 
 El MVP demostrará el **flujo completo end-to-end**:
 
-1. ✅ Login/registro de agricultor
-2. ✅ Formulario de plan agrícola (cultivo, hectáreas, etapa fenológica)
-3. ✅ Envío asíncrono de solicitud (HTTP 202 + ticket_id)
-4. ✅ Pipeline de 4 agentes con Gemini API (free tier)
-5. ✅ Progreso en tiempo real vía SSE
-6. ✅ Visualización de recomendación (productos, dosis, costos, alternativas)
-7. ✅ Historial de recomendaciones del usuario
-8. ⬜ Stripe payments (mock/stub)
-9. ⬜ Scraping de catálogos (datos seed manuales)
+1. ✅ Login con cédula + contraseña / Registro con email, nombre, cédula, teléfono, contraseña
+2. ✅ CRUD de zonas/fincas (nombre, suelo, humedad, temperatura, agua, ubicación)
+3. ✅ Wizard de gestión del caso (zona → contexto ambiental → problema → confirmación) — todo con dropdowns
+4. ✅ Envío asíncrono de solicitud (HTTP 202 + ticket_id)
+5. ✅ Pipeline de 4 agentes con Gemini API (free tier)
+6. ✅ Progreso en tiempo real vía SSE (4 pasos animados)
+7. ✅ Resultado: 3 productos recomendados + tabla comparativa
+8. ✅ Sección de proveedores con botón "Contactar" (mailto:)
+9. ✅ Historial de recomendaciones pasadas
+10. ✅ Mi Cuenta (editar perfil + cambiar contraseña)
 
 #### Lo que NO incluye el MVP
 
 - Scraping automático de catálogos de distribuidores (se usarán datos semilla)
-- Pagos reales (Stripe stub)
+- Pagos, suscripciones ni Stripe (la plataforma es solo informativa)
 - Deployment en AWS (se demostrará local con Docker Compose)
 - Multi-idioma
 - Mobile app
@@ -883,10 +889,11 @@ El MVP demostrará el **flujo completo end-to-end**:
 #### Preparación sugerida
 
 - Demo en vivo del flujo completo corriendo en Docker Compose
-- Mostrar el pipeline de agentes en acción con logs en tiempo real
-- Preparar 2-3 escenarios de cultivos diferentes
-- Slides con la propuesta de valor B2B para distribuidores
-- Mostrar la escalabilidad del diseño (colas, workers, rate limiting)
+- Mostrar el wizard de contexto con dropdowns → confirmación → resultado
+- Mostrar el pipeline de 4 agentes en acción con progreso SSE
+- Preparar 2-3 escenarios de cultivos diferentes (café, tomate, banano)
+- Mostrar la sección de proveedores con datos de contacto
+- Demostrar el historial de recomendaciones y zonas guardadas
 
 ---
 
@@ -910,8 +917,11 @@ docker-compose up -d && curl http://localhost:8000/health
 
 ### Manual Verification
 
-- Recorrer el flujo completo: registro → login → crear recomendación → ver progreso SSE → ver resultado
-- Verificar que el pipeline de 4 agentes se ejecuta correctamente con la API de Gemini
-- Verificar rate limiting y backoff con múltiples solicitudes simultáneas
-- Revisar respuestas del LLM para detectar alucinaciones en recomendaciones
-- Verificar que los datos de productos y regulaciones se consultan correctamente desde pgvector
+- Recorrer el flujo completo: registro (cédula, email, nombre, teléfono) → login (cédula+contraseña) → crear zona → wizard (seleccionar zona → contexto → confirmación) → ver progreso SSE → ver 3 productos + comparativa → ver proveedores → contactar (mailto:)
+- Verificar CRUD de zonas (crear, editar, eliminar)
+- Verificar que todos los campos del wizard son dropdowns (sin text inputs)
+- Verificar pantalla de confirmación antes de enviar
+- Verificar que el pipeline de 4 agentes se ejecuta y genera exactamente 3 productos
+- Verificar historial de recomendaciones pasadas
+- Verificar "Mi Cuenta" (editar perfil, cambiar contraseña)
+- Verificar que los datos de proveedores se muestran correctamente (nombre, email, teléfono, ubicación)

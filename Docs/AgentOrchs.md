@@ -19,7 +19,7 @@
   - `/src/api/routes/notifications.py` (Manejo de SSE)
 
 **Restricciones y recomendaciones para los devs**
-- Idempotencia obligatoria: El desarrollador debe asegurar que si el Background Worker Task procesa el mismo mensaje dos veces (por un fallo de red), no se generen compras duplicadas ni estados inconsistentes en PostgreSQL.
+- Idempotencia obligatoria: El desarrollador debe asegurar que si el Background Worker Task procesa el mismo mensaje dos veces (por un fallo de red), no se generen recomendaciones duplicadas ni estados inconsistentes en PostgreSQL.
 
 - Control de Concurrencia: El Worker debe estar configurado para consumir mensajes a un ritmo que nunca supere las capacidades del LLM  actuando como amortiguador del tráfico.
 
