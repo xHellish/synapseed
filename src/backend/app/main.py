@@ -88,7 +88,7 @@ def create_app() -> FastAPI:
         """Verifica el estado del backend y sus dependencias externas.
 
         En la fase 0 retorna solo metadata. En la fase 2 agregamos checks
-        reales contra PostgreSQL, Redis y Gemini API.
+        reales contra PostgreSQL, Redis y OpenRouter API.
         """
         return {
             "status": "ok",
@@ -98,7 +98,7 @@ def create_app() -> FastAPI:
             "checks": {
                 "database": "pending",
                 "redis": "pending",
-                "gemini": "pending",
+                "openrouter": "pending",
             },
         }
 

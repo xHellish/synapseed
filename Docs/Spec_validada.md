@@ -21,7 +21,7 @@
 | Celery | react-hook-form + zod |  |
 | Redis | Vitest, ESLint |  |
 | LangGraph |  |  |
-| Gemini (langchain-google-genai) |  |  |
+| OpenRouter (langchain-openai) |  |  |
 | pgvector |  |  |
 | pytest, Ruff |  |  |
 
@@ -48,7 +48,7 @@ src/
 - **User** — id, identification (cédula, varchar, unique), email, password_hash, full_name, phone, is_active, timestamps
 - **Zone** — id, user_id (FK), name, soil_type, humidity, temperature, water_quality, location, timestamps
 - **Distributor** — id, name, email, phone, location, website, is_active, timestamps
-- **Product** — id, name, active_ingredient, description, category, formulation, concentration, dosage_per_hectare, application_method, safety_interval_days, price_per_liter, distributor_id (FK), sfe_registration, sfe_status, toxicity_band, embedding (vector 768), is_active, timestamps
+- **Product** — id, name, active_ingredient, description, category, formulation, concentration, dosage_per_hectare, application_method, safety_interval_days, price_per_liter, distributor_id (FK), sfe_registration, sfe_status, toxicity_band, embedding (vector 1536), is_active, timestamps
 - **Recommendation** — id, ticket_id (unique), user_id (FK), zone_id (FK nullable), status, crop, crop_stage, affected_area, soil_type, humidity, temperature, water_quality, problem_to_solve, last_agrochemical, max_budget_per_liter, agent_context (jsonb), agent_research (jsonb), agent_validation (jsonb), final_recommendation (jsonb), processing_time_ms, error_message, timestamps, completed_at
 - **RecommendationProduct** — id, recommendation_id (FK), product_id (FK), rank (1-3), justification, recommended_dosage, estimated_cost, compatibility_notes, timestamps
 - **Regulation** — id, regulation_code (unique), title, issuing_body, description, prohibited_substances (jsonb), restricted_crops (jsonb), is_active, source_url, embedding, timestamps
@@ -189,7 +189,7 @@ Paso 4: Confirmación
 
 ## 8. Variables .env requeridas
 
-> Ver `.env` para todas las claves (DB, Redis, JWT, Gemini, etc)
+> Ver `.env` para todas las claves (DB, Redis, JWT, OpenRouter, etc)
 
 ---
 

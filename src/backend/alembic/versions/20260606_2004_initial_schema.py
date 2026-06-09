@@ -219,10 +219,10 @@ def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS vector;")
     
     # 10. Alter products to add vector column with proper type
-    op.execute("ALTER TABLE products ALTER COLUMN embedding TYPE vector(768) USING embedding::vector;")
+    op.execute("ALTER TABLE products ALTER COLUMN embedding TYPE vector(1536) USING embedding::vector;")
     
     # 11. Alter regulations to add vector column with proper type
-    op.execute("ALTER TABLE regulations ALTER COLUMN embedding TYPE vector(768) USING embedding::vector;")
+    op.execute("ALTER TABLE regulations ALTER COLUMN embedding TYPE vector(1536) USING embedding::vector;")
 
     # Create HNSW indexes for vector similarity search
     op.execute("CREATE INDEX ix_products_embedding ON products USING hnsw (embedding vector_cosine_ops);")

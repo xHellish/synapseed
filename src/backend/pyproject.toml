@@ -58,7 +58,7 @@ dependencies = [
     # --- Agentes IA / LangChain / LangGraph ---
     "langchain==0.3.20",
     "langchain-core==0.3.62",
-    "langchain-google-genai==2.1.5",
+    "langchain-openai==0.3.0",
     "langgraph==0.3.20",
 
     # --- Utilidades ---

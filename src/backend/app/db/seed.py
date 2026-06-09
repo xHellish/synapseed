@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from google import genai
+from openai import OpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,25 +27,35 @@ from app.models import (
 
 # Configuración
 OUTPUT_DIR = Path("../../output")  # Relativo a src/backend (project root/output)
-EMBEDDING_MODEL = "text-embedding-004"
-EMBEDDING_DIM = 768
+EMBEDDING_MODEL = "openai/text-embedding-3-small"
+EMBEDDING_DIM = 1536
 BATCH_SIZE = 100
 
-# Inicializar cliente Gemini
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY")) if os.getenv("GEMINI_API_KEY") else None
+# Inicializar cliente OpenRouter (compatible con OpenAI SDK)
+openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+openrouter_client = (
+    OpenAI(
+        api_key=openrouter_api_key,
+        base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+    )
+    if openrouter_api_key
+    else None
+)
 
 
-async def get_embedding(text: str) -> list[float] | None:
-    """Genera embedding usando Gemini text-embedding-004."""
+def get_embedding(text: str) -> list[float] | None:
+    """Genera embedding usando OpenRouter (modelo openai/text-embedding-3-small)."""
     if not text or not text.strip():
         return None
+    if not openrouter_client:
+        print("  [WARN] OPENROUTER_API_KEY no configurada")
+        return None
     try:
-        response = client.models.embed_content(
+        response = openrouter_client.embeddings.create(
             model=EMBEDDING_MODEL,
-            contents=text,
+            input=text,
         )
-        # gemini devuelve una lista de embeddings
-        embedding = response.embeddings[0].values
+        embedding = response.data[0].embedding
         if len(embedding) == EMBEDDING_DIM:
             return embedding
         else:
@@ -365,8 +375,8 @@ async def main():
     print("=" * 60)
     
     # Verificar API key
-    if not os.getenv("GEMINI_API_KEY"):
-        print("⚠️  GEMINI_API_KEY no configurada. Los embeddings no se generarán.")
+    if not os.getenv("OPENROUTER_API_KEY"):
+        print("⚠️  OPENROUTER_API_KEY no configurada. Los embeddings no se generarán.")
     
     async with get_db_session() as session:
         # 1. Cargar productos (plaguicidas)
@@ -393,10 +403,10 @@ async def main():
         await seed_regulations(session)
         
         # 6. Generar embeddings (si hay API key)
-        if os.getenv("GEMINI_API_KEY"):
+        if os.getenv("OPENROUTER_API_KEY"):
             await generate_embeddings(session)
         else:
-            print("\n⚠️  Saltando generación de embeddings (no hay GEMINI_API_KEY)")
+            print("\n⚠️  Saltando generación de embeddings (no hay OPENROUTER_API_KEY)")
         
         # Commit all changes
         await session.commit()

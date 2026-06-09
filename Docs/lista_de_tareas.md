@@ -12,7 +12,7 @@
 - [x] **0.2** Crear `docker-compose.yml` con servicios: `postgres`, `redis`, `backend`, `frontend`, `worker`
 - [x] **0.3** Crear `src/backend/pyproject.toml` con todas las dependencias (FastAPI, SQLAlchemy, Alembic, Celery, LangGraph, pgvector, etc.)
 - [x] **0.4** Crear `src/frontend/package.json` e inicializar proyecto Vite + React + TypeScript
-- [x] **0.5** Crear archivo `.env.example` con todas las variables necesarias (DB, Redis, JWT_SECRET, GEMINI_API_KEY)
+- [x] **0.5** Crear archivo `.env.example` con todas las variables necesarias (DB, Redis, JWT_SECRET, OPENROUTER_API_KEY)
 - [x] **0.6** Actualizar `README.md` con instrucciones para correr el proyecto localmente
 
 ---
@@ -27,7 +27,7 @@
 - [x] **1.6** Scrappear o conseguir datos de **distribuidores/proveedores** costarricenses de agroquímicos: nombre, correo, teléfono, ubicación — ✅ 20 distribuidores en `seed.py` + registrantes del SFE
 - [x] **1.7** Descargar/compilar las **regulaciones del MAG/SFE** relevantes (decretos, listas de sustancias prohibidas) para la tabla `regulations` — ✅ 5 regulaciones en `seed.py` (Decretos, Ley 7664, Lista Prohibida, LMR)
 - [x] **1.8** Crear script `src/backend/app/db/seed.py` que inserte: productos del SFE, distribuidores y regulaciones en la DB — ✅ Script completo con upsert, vinculación productos-distribuidores
-- [x] **1.9** Calcular y guardar los **embeddings vectoriales** (768 dimensiones, modelo `text-embedding-004` de Google) para cada producto y regulación — ✅ Función `generate_embeddings()` en `seed.py` usando Gemini
+- [x] **1.9** Calcular y guardar los **embeddings vectoriales** (1536 dimensiones, modelo `text-embedding-3-small` vía OpenRouter) para cada producto y regulación — ✅ Función `generate_embeddings()` en `seed.py` usando OpenRouter
 
 ---
 
@@ -67,20 +67,20 @@
 - [ ] **2.21** Crear endpoint `GET /api/v1/recommendations/{id}/providers` — retorna distribuidores de los 3 productos recomendados (nombre, correo, teléfono, ubicación)
 
 ### Health
-- [ ] **2.22** Crear endpoint `GET /api/v1/health` — verifica conexión a DB, Redis y Gemini API
+- [ ] **2.22** Crear endpoint `GET /api/v1/health` — verifica conexión a DB, Redis y OpenRouter API
 
 ---
 
 ## 🤖 3. Pipeline de Agentes IA (LangGraph + Celery)
 
 - [x] **3.1** Configurar `Celery` con Redis como broker — crear `src/backend/app/workers/celery_app.py` *(esqueleto: broker/backend conectados a Redis; sin tareas registradas aun)*
-- [ ] **3.2** Crear **Agente 1 — Analizador de Contexto**: recibe el formulario del agricultor (todos los dropdowns), produce un resumen agronómico estructurado usando Gemini
+- [ ] **3.2** Crear **Agente 1 — Analizador de Contexto**: recibe el formulario del agricultor (todos los dropdowns), produce un resumen agronómico estructurado usando OpenRouter
 - [ ] **3.3** Crear **Agente 2 — Investigador (RAG)**: hace búsqueda vectorial semántica con pgvector sobre la tabla `products`, filtra candidatos relevantes al problema y cultivo
-- [ ] **3.4** Crear **Agente 3 — Validador Legal**: cruza productos candidatos con la tabla `regulations`, descarta los que tengan sustancias prohibidas o incompatibilidades, usando Gemini para interpretar la normativa
+- [ ] **3.4** Crear **Agente 3 — Validador Legal**: cruza productos candidatos con la tabla `regulations`, descarta los que tengan sustancias prohibidas o incompatibilidades, usando OpenRouter para interpretar la normativa
 - [ ] **3.5** Crear **Agente 4 — Sintetizador**: toma los productos válidos, los rankea por costo-beneficio y genera **exactamente 3 recomendaciones** con tabla comparativa (dosis, precio, toxicidad, intervalo de seguridad)
 - [ ] **3.6** Orquestar los 4 agentes en un grafo LangGraph (`src/backend/app/agents/orchestrator.py`)
 - [ ] **3.7** Publicar eventos a Redis pub/sub en cada paso del pipeline para alimentar el endpoint SSE
-- [ ] **3.8** Implementar rate limiting y exponential backoff para la Gemini API (máx. 15 RPM en free tier)
+- [ ] **3.8** Implementar rate limiting y exponential backoff para la OpenRouter API (máx. 20 RPM)
 - [ ] **3.9** Implementar idempotencia: si un ticket ya está `completed`, no reprocesar
 
 ---
@@ -139,7 +139,7 @@
 
 - [ ] **6.1** Crear `conftest.py` con fixtures de pytest: DB de test, cliente HTTP async, usuario de prueba
 - [ ] **6.2** Tests unitarios backend: auth (login con cédula, registro, token inválido), zonas (CRUD), recomendaciones (crear ticket, consultar historial)
-- [ ] **6.3** Tests de los agentes IA con mocks de Gemini (no llama a la API real en tests)
+- [ ] **6.3** Tests de los agentes IA con mocks de OpenRouter (no llama a la API real en tests)
 - [ ] **6.4** Tests frontend con Vitest + React Testing Library: Login, wizard de contexto, pantalla de resultado
 - [ ] **6.5** Tests E2E con Playwright: flujo completo (login → crear caso → ver resultado → contactar proveedor)
 

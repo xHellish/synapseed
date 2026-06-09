@@ -61,13 +61,14 @@ class Settings(BaseSettings):
         default_factory=lambda: ["http://localhost:5173", "http://localhost:3000"],
     )
 
-    # --- Google Gemini ---
-    gemini_api_key: str = "your-gemini-api-key-here"
-    gemini_model: str = "gemini-2.0-flash"
-    gemini_embedding_model: str = "text-embedding-004"
-    gemini_embedding_dim: int = 768
-    gemini_rpm_limit: int = 15
-    gemini_max_retries: int = 5
+    # --- OpenRouter (LLM + Embeddings) ---
+    openrouter_api_key: str = "your-openrouter-api-key-here"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_chat_model: str = "google/gemini-2.0-flash-001"
+    openrouter_embedding_model: str = "openai/text-embedding-3-small"
+    openrouter_embedding_dim: int = 1536
+    openrouter_rpm_limit: int = 20
+    openrouter_max_retries: int = 5
 
     # --- SSE ---
     sse_keepalive_interval: int = 15
