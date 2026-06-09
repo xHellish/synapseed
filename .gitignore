@@ -86,6 +86,3 @@ site/
 test-results/
 playwright-report/
 playwright/.cache/
-.github/agents/API-designer.agent.md
-.github/agents/code-explainer.agent.md
-.github/agents/synapseed-api-architect.agent.md
