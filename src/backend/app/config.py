@@ -61,14 +61,17 @@ class Settings(BaseSettings):
         default_factory=lambda: ["http://localhost:5173", "http://localhost:3000"],
     )
 
-    # --- OpenRouter (LLM + Embeddings) ---
+    # --- OpenRouter (Chat LLM) ---
     openrouter_api_key: str = "your-openrouter-api-key-here"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    openrouter_chat_model: str = "google/gemini-2.0-flash-001"
-    openrouter_embedding_model: str = "openai/text-embedding-3-small"
-    openrouter_embedding_dim: int = 1536
+    openrouter_chat_model: str = "meta-llama/llama-3.1-8b-instruct:free"
     openrouter_rpm_limit: int = 20
     openrouter_max_retries: int = 5
+
+    # --- Google Gemini (Embeddings — gratuito) ---
+    gemini_api_key: str = "your-gemini-api-key-here"
+    google_embedding_model: str = "models/text-embedding-004"
+    embedding_dim: int = 768
 
     # --- SSE ---
     sse_keepalive_interval: int = 15
