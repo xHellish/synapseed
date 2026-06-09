@@ -29,6 +29,7 @@ FROM base AS dev
 # Instalar el proyecto en modo editable + extras de dev
 COPY pyproject.toml ./
 COPY alembic.ini ./
+COPY alembic ./alembic
 COPY app ./app
 RUN pip install --upgrade pip && \
     pip install -e ".[dev]" && \
@@ -49,6 +50,7 @@ FROM base AS prod
 
 COPY pyproject.toml ./
 COPY alembic.ini ./
+COPY alembic ./alembic
 COPY app ./app
 RUN pip install --upgrade pip && \
     pip install -e ".[prod]" && \

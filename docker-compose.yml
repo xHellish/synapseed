@@ -20,7 +20,6 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./Docs/database/create_tables.sql:/docker-entrypoint-initdb.d/01_create_tables.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-synapseed} -d ${POSTGRES_DB:-synapseed}"]
       interval: 10s
@@ -76,7 +75,7 @@ services:
       - ./src/backend/app:/app/app
       - ./src/backend/tests:/app/tests
     command: >
-      sh -c "alembic upgrade head 2>/dev/null || true;
+      sh -c "alembic upgrade head;
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     networks:
       - synapseed-net
