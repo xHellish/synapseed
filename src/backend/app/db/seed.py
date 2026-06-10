@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from langchain_google_genai import GoogleGenAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,17 +27,31 @@ from app.models import (
 
 # Configuración
 settings = get_settings()
-OUTPUT_DIR = Path("../../output")  # Relativo a src/backend (project root/output)
+
+# Directorio de salida: raíz del proyecto (donde está output/)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent  # src/backend/app/db -> SynapSeed/
+OUTPUT_DIR = PROJECT_ROOT / "output"
+
 EMBEDDING_DIM = settings.embedding_dim
 BATCH_SIZE = 100
 
 # Inicializar embeddings de Google Gemini (gratuito)
-embedding_client: GoogleGenAIEmbeddings | None = None
+embedding_client: GoogleGenerativeAIEmbeddings | None = None
 if settings.gemini_api_key and settings.gemini_api_key != "your-gemini-api-key-here":
-    embedding_client = GoogleGenAIEmbeddings(
-        google_api_key=settings.gemini_api_key,
-        model=settings.google_embedding_model,
-    )
+    print("Verificando la API Key de Gemini...")
+    try:
+        test_client = GoogleGenerativeAIEmbeddings(
+            google_api_key=settings.gemini_api_key,
+            model=settings.google_embedding_model,
+        )
+        # Probar con un texto corto
+        test_client.embed_query("test")
+        embedding_client = test_client
+        print("✅ API Key de Gemini validada y lista para generar embeddings.")
+    except Exception as e:
+        print(f"⚠️  No se pudo validar la API Key de Gemini: {e}")
+        print("⚠️  Se saltará la generación de embeddings para acelerar el proceso de seed.")
+        embedding_client = None
 
 
 def get_embedding(text: str) -> list[float] | None:
@@ -63,13 +77,25 @@ def get_embedding(text: str) -> list[float] | None:
 
 
 async def seed_products(session: AsyncSession, csv_path: Path) -> int:
-    """Carga productos desde plaguicidas.csv y fertilizantes.csv."""
-    print(f"\n📦 Cargando productos desde {csv_path}...")
+    """Carga productos desde plaguicidas.csv y fertilizantes.csv de manera eficiente."""
+    print(f"\n📦 Cargando productos desde {csv_path}...", flush=True)
     
+    # Obtener todos los registros existentes para evitar duplicados en memoria
+    result = await session.execute(select(Product.numero_registro))
+    existing_regs = {r[0] for r in result.fetchall() if r[0]}
+    
+    new_products = []
     count = 0
     with open(csv_path, "r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for row in reader:
+            numero_registro = row.get("numero_registro", "").strip()
+            if not numero_registro:
+                continue
+                
+            if numero_registro in existing_regs:
+                continue
+                
             # Determinar categoría por nombre del archivo
             categoria = "plaguicida" if "plaguicidas" in str(csv_path) else "fertilizante"
             
@@ -86,48 +112,37 @@ async def seed_products(session: AsyncSession, csv_path: Path) -> int:
             else:
                 estado_valor = "ACTIVO"
             
-            # Crear texto para embedding
-            embedding_text = f"{row.get('nombre_comercial') or row.get('marca', '')} {row.get('ingredientes', '')} {categoria}"
-            
             product = Product(
-                numero_registro=row.get("numero_registro", "").strip(),
-                nombre_comercial=row.get("marca", "").strip() if "plaguicidas" in str(csv_path) else row.get("marca", "").strip(),
+                numero_registro=numero_registro,
+                nombre_comercial=row.get("marca", "").strip(),
                 ingrediente_activo=row.get("ingredientes", "").strip(),
                 categoria=ProductCategory[categoria.upper()],
                 estado=ProductStatus[estado_valor],
-                banda_toxicologica=None,  # Se podrá agregar después
+                banda_toxicologica=None,
                 registrante=row.get("registrante", "").strip() if "registrante" in row else None,
                 dosis_recomendada=None,
                 intervalo_seguridad_dias=None,
                 precio_referencia_por_litro=None,
                 cultivo_objetivo=None,
                 problema_objetivo=None,
-                embedding=None,  # Se llenará en batch separado
+                embedding=None,
             )
-            
-            # Usar upsert: insert si no existe, update si existe
-            existing = await session.execute(
-                select(Product).where(Product.numero_registro == product.numero_registro)
-            )
-            existing_product = existing.scalar_one_or_none()
-            
-            if existing_product:
-                # Actualizar campos
-                existing_product.nombre_comercial = product.nombre_comercial
-                existing_product.ingrediente_activo = product.ingrediente_activo
-                existing_product.categoria = product.categoria
-                existing_product.estado = product.estado
-                existing_product.registrante = product.registrante
-            else:
-                session.add(product)
-            
+            new_products.append(product)
+            existing_regs.add(numero_registro)
             count += 1
-            if count % BATCH_SIZE == 0:
-                await session.flush()
-                print(f"  Procesados: {count}")
-    
-    await session.flush()
-    print(f"  ✅ Total productos cargados/actualizados: {count}")
+
+    # Insertar en lotes (batch insert)
+    if new_products:
+        print(f"  Insertando {len(new_products)} nuevos productos en base de datos...", flush=True)
+        BATCH_INSERT_SIZE = 1000
+        for i in range(0, len(new_products), BATCH_INSERT_SIZE):
+            batch = new_products[i:i + BATCH_INSERT_SIZE]
+            session.add_all(batch)
+            await session.flush()
+            porcentaje = ((i + len(batch)) / len(new_products)) * 100
+            print(f"  Procesados/Insertados: {i + len(batch)} / {len(new_products)} ({porcentaje:.1f}%)", flush=True)
+            
+    print(f"  ✅ Total productos cargados: {count}", flush=True)
     return count
 
 
@@ -214,24 +229,23 @@ async def link_products_distributors(session: AsyncSession) -> int:
     result = await session.execute(select(Distributor))
     distributors = {d.nombre: d for d in result.scalars().all()}
     
+    # Obtener relaciones existentes de una sola vez
+    result_links = await session.execute(select(ProductDistributor))
+    existing_links = {(l.product_id, l.distributor_id) for l in result_links.scalars().all()}
+    
     count = 0
     for product in products:
         if product.registrante and product.registrante in distributors:
             distributor = distributors[product.registrante]
             
-            # Verificar si ya existe la relación
-            existing = await session.execute(
-                select(ProductDistributor).where(
-                    ProductDistributor.product_id == product.id,
-                    ProductDistributor.distributor_id == distributor.id
-                )
-            )
-            if not existing.scalar_one_or_none():
+            link_key = (product.id, distributor.id)
+            if link_key not in existing_links:
                 link = ProductDistributor(
                     product_id=product.id,
                     distributor_id=distributor.id
                 )
                 session.add(link)
+                existing_links.add(link_key)
                 count += 1
     
     await session.flush()
@@ -329,7 +343,7 @@ async def generate_embeddings(session: AsyncSession) -> None:
     
     for i, product in enumerate(products):
         text = f"{product.nombre_comercial} {product.ingrediente_activo} {product.categoria.value} para {product.cultivo_objetivo or 'uso general'}"
-        embedding = await get_embedding(text)
+        embedding = get_embedding(text)
         if embedding:
             product.embedding = embedding
         
@@ -349,7 +363,7 @@ async def generate_embeddings(session: AsyncSession) -> None:
     
     for i, regulation in enumerate(regulations):
         text = f"{regulation.titulo} {regulation.resumen or ''} {regulation.sustancias_afectadas or ''}"
-        embedding = await get_embedding(text)
+        embedding = get_embedding(text)
         if embedding:
             regulation.embedding = embedding
         
@@ -364,7 +378,8 @@ async def generate_embeddings(session: AsyncSession) -> None:
 async def main():
     """Función principal de seed."""
     print("=" * 60)
-    print(" SynapSeed - Seed de Base de Datos")
+    print(f" SynapSeed - Seed de Base de Datos")
+    print(f" Directorio de salida: {OUTPUT_DIR}")
     print("=" * 60)
     
     # Verificar API key

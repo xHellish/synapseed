@@ -6,12 +6,16 @@
 
 services:
   # -----------------------------------------------------------
-  # PostgreSQL 16 con extensión pgvector
+  # PostgreSQL 16 con extensión pgvector (solo para desarrollo local)
+  # Si usas Supabase, no necesitas este servicio.
+  # Activar con: docker compose --profile local up postgres
   # -----------------------------------------------------------
   postgres:
     image: pgvector/pgvector:pg16
     container_name: synapseed-postgres
     restart: unless-stopped
+    profiles:
+      - local
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-synapseed}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-synapseed}
@@ -60,13 +64,10 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-synapseed}:${POSTGRES_PASSWORD:-synapseed}@postgres:5432/${POSTGRES_DB:-synapseed}
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     ports:
@@ -92,13 +93,10 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-synapseed}:${POSTGRES_PASSWORD:-synapseed}@postgres:5432/${POSTGRES_DB:-synapseed}
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       backend:

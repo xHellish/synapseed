@@ -82,11 +82,9 @@ SynapSeed/
 
 - [Docker](https://www.docker.com/) 24+ y Docker Compose v2
 - [Git](https://git-scm.com/)
-- Una API key de **OpenRouter** — obtener en
-  [openrouter.ai/keys](https://openrouter.ai/keys)
-
-> Si querés correr el backend sin Docker: Python 3.12+ y un Postgres+Redis locales
-> (no recomendado para desarrollo, pero útil para iterar sobre un solo servicio).
+- Una API key de **OpenRouter** — obtener en [openrouter.ai/keys](https://openrouter.ai/keys)
+- Una API key de **Google AI Studio** — obtener en [aistudio.google.com](https://aistudio.google.com) (para embeddings gratuitos)
+- Un proyecto en **Supabase** — crear gratis en [supabase.com](https://supabase.com) ( PostgreSQL + pgvector incluido)
 
 ### 2. Clonar y configurar
 
@@ -97,8 +95,11 @@ cd synapseed
 # Copiar las variables de entorno
 cp .env.example .env
 
-# IMPORTANTE: editar .env y poner tu OPENROUTER_API_KEY real
-# (reemplazar "your-openrouter-api-key-here")
+# IMPORTANTE: editar .env y configurar:
+# 1. OPENROUTER_API_KEY — tu key de OpenRouter (chat LLM)
+# 2. GEMINI_API_KEY — tu key de Google AI Studio (embeddings)
+# 3. DATABASE_URL — connection string de Supabase (Settings → Database → URI)
+# 4. SUPABASE_URL y SUPABASE_ANON_KEY — de tu proyecto Supabase
 ```
 
 ### 3. Levantar el stack completo con Docker Compose

@@ -33,15 +33,17 @@ class Settings(BaseSettings):
     project_name: str = "SynapSeed"
     api_v1_prefix: str = "/api/v1"
 
-    # --- Base de datos ---
+    # --- Base de datos (Supabase o local) ---
     database_url: str = Field(
         default="postgresql+asyncpg://synapseed:synapseed@localhost:5432/synapseed",
-        description="URL asyncpg para SQLAlchemy.",
+        description="URL asyncpg para SQLAlchemy (Supabase pooler o local).",
     )
     database_url_sync: str = Field(
         default="postgresql+psycopg2://synapseed:synapseed@localhost:5432/synapseed",
         description="URL síncrona para Alembic.",
     )
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
     db_pool_size: int = 20
     db_max_overflow: int = 10
 
