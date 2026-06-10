@@ -1,0 +1,15 @@
+# Agentic Workspace — Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Testing
+pytest>=8.0.0
+pytest-cov>=5.0.0
+
+# Validation scripts
+pyyaml>=6.0.1
+
+# Security tooling (for security-auditor skill)
+pip-audit>=2.7.0
+
+# Optional: secret scanning (requires separate install)
+# pip install truffleHog  # or: brew install gitleaks
