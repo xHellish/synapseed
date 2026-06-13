@@ -1,5 +1,0 @@
-Antes de responder o ejecutar cualquier tarea, revisa obligatoriamente el directorio `.agents/skills/`.
-Consulta `.agents/manifest.json` para identificar cuál skill corresponde al contexto actual, usando la lista de `triggers` de cada skill como referencia de activación.
-Una vez identificada la skill, lee su `SKILL.md` completo, adopta ese rol, sus responsabilidades, y carga sus archivos de referencia siguiendo la sección `## Reference Loading`.
-Si la tarea involucra múltiples skills (ej. análisis + refactoring), actívalas secuencialmente siguiendo el orden lógico definido en los pipelines de `.agents/config.yaml`.
-Lee `.agents/config.yaml` para obtener el idioma de respuesta, stacks soportados y configuración por skill. 

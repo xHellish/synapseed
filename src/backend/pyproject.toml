@@ -167,6 +167,7 @@ filterwarnings = [
     "error",
     "ignore::DeprecationWarning:passlib.*",
     "ignore::DeprecationWarning:pydantic.*",
+    "ignore::sqlalchemy.exc.SADeprecationWarning",
 ]
 
 # --- Coverage ---
