@@ -1,13 +1,15 @@
 """SynapSeed — Application entrypoint (FastAPI app factory).
 
-Este archivo es el esqueleto inicial. La fase 0 solo expone:
+Expone los siguientes endpoints:
 
-* ``/api/v1/health`` → health check (DB + Redis + LLM)
-* ``/`` → metadata
-* ``/docs`` y ``/redoc`` → OpenAPI auto-generado
-
-Los routers reales (auth, users, zones, recommendations, providers, catalogs)
-se agregan en las fases 1, 2 y 3.
+* ``/api/v1/health``          → health check
+* ``/api/v1/auth/login``      → login (JWT)
+* ``/api/v1/users/me``        → perfil autenticado
+* ``/api/v1/zones``           → CRUD de zonas agrícolas
+* ``/api/v1/catalogs``        → catálogos (cultivos, suelos)
+* ``/api/v1/recommendations`` → solicitud y consulta de recomendaciones
+* ``/docs``                   → Swagger UI (interactivo)
+* ``/redoc``                  → ReDoc
 """
 
 from __future__ import annotations
@@ -17,11 +19,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 
 from app import __version__
 from app.config import get_settings
 
-# Configurar logging antes de cualquier otra cosa
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
@@ -31,11 +33,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
-    """Ciclo de vida de la app: startup y shutdown.
-
-    En la fase 0 solo logueamos. En fases siguientes conectamos DB/Redis y
-    cerramos pools.
-    """
+    """Ciclo de vida de la app: startup y shutdown."""
     settings = get_settings()
     logger.info(
         "🚀 SynapSeed backend v%s iniciando (env=%s, debug=%s)",
@@ -47,29 +45,80 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
     logger.info("👋 SynapSeed backend detenido")
 
 
-def create_app() -> FastAPI:
-    """App factory principal.
+def custom_openapi(app: FastAPI):
+    """Genera el schema OpenAPI con el esquema Bearer JWT configurado."""
 
-    Devuelve una instancia de ``FastAPI`` lista para servir con uvicorn:
-        uvicorn app.main:app --reload
-    """
+    def openapi():
+        if app.openapi_schema:
+            return app.openapi_schema
+
+        schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+
+        # Servers: permite que Swagger UI envíe requests al host correcto
+        # tanto en local como cuando se abre desde dentro de Docker
+        schema["servers"] = [
+            {"url": "http://localhost:8000", "description": "Desarrollo local"},
+        ]
+
+        # Esquema de seguridad Bearer JWT
+        schema.setdefault("components", {})
+        schema["components"]["securitySchemes"] = {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": (
+                    "Token JWT obtenido en **POST /api/v1/auth/login**.\n\n"
+                    "Pegá el token en el botón **🔒 Authorize** (arriba a la derecha)."
+                ),
+            }
+        }
+
+        # Seguridad global aplicada a todos los endpoints
+        schema["security"] = [{"BearerAuth": []}]
+
+        app.openapi_schema = schema
+        return app.openapi_schema
+
+    return openapi
+
+
+def create_app() -> FastAPI:
+    """App factory principal."""
     settings = get_settings()
 
     app = FastAPI(
-        title=settings.project_name,
+        title="SynapSeed API",
         version=__version__,
         description=(
-            "Plataforma de recomendación de agroquímicos para agricultores "
-            "costarricenses. Solo información, sin compras."
+            "## Plataforma de recomendación de agroquímicos 🌱\n\n"
+            "Recomienda agroquímicos a agricultores costarricenses basándose en cultivo, "
+            "etapa, tipo de suelo y presupuesto.\n\n"
+            "### Autenticación\n"
+            "1. Ejecuta **POST `/api/v1/auth/login`** con tu cédula y contraseña.\n"
+            "2. Copia el `access_token` de la respuesta.\n"
+            "3. Hacé clic en **🔒 Authorize** (arriba a la derecha) y pegá el token.\n\n"
+            "A partir de ahí todos los endpoints protegidos se autentican automáticamente."
         ),
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
         debug=settings.debug,
         lifespan=lifespan,
+        contact={
+            "name": "SynapSeed Team",
+            "email": "synapseed@tec.ac.cr",
+            "url": "https://github.com/xHellish/synapseed",
+        },
+        license_info={"name": "Proprietary"},
     )
 
-    # --- CORS: solo orígenes configurados en .env ---
+    # --- CORS ---
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.backend_cors_origins,
@@ -78,31 +127,17 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # --- Health check (DB + Redis + LLM API) ---
-    @app.get(
-        f"{settings.api_v1_prefix}/health",
-        tags=["health"],
-        summary="Health check del sistema",
-    )
-    async def health() -> dict:
-        """Verifica el estado del backend y sus dependencias externas.
+    # --- Routers ---
+    from app.api.v1 import auth, catalogs, health, recommendations, users, zones
 
-        En la fase 0 retorna solo metadata. En la fase 2 agregamos checks
-        reales contra PostgreSQL, Redis y OpenRouter API.
-        """
-        return {
-            "status": "ok",
-            "version": __version__,
-            "env": settings.app_env,
-            "service": "synapseed-backend",
-            "checks": {
-                "database": "pending",
-                "redis": "pending",
-                "openrouter": "pending",
-            },
-        }
+    app.include_router(health.router, prefix=settings.api_v1_prefix)
+    app.include_router(auth.router, prefix=settings.api_v1_prefix)
+    app.include_router(users.router, prefix=settings.api_v1_prefix)
+    app.include_router(zones.router, prefix=settings.api_v1_prefix)
+    app.include_router(catalogs.router, prefix=settings.api_v1_prefix)
+    app.include_router(recommendations.router, prefix=settings.api_v1_prefix)
 
-    # --- Root: metadata simple ---
+    # --- Root redirect metadata ---
     @app.get("/", tags=["meta"], include_in_schema=False)
     async def root() -> dict:
         return {
@@ -113,14 +148,8 @@ def create_app() -> FastAPI:
             "api": settings.api_v1_prefix,
         }
 
-    from app.api.v1 import auth, catalogs, health, recommendations, users, zones
-
-    app.include_router(health.router, prefix=settings.api_v1_prefix)
-    app.include_router(auth.router, prefix=settings.api_v1_prefix)
-    app.include_router(users.router, prefix=settings.api_v1_prefix)
-    app.include_router(zones.router, prefix=settings.api_v1_prefix)
-    app.include_router(catalogs.router, prefix=settings.api_v1_prefix)
-    app.include_router(recommendations.router, prefix=settings.api_v1_prefix)
+    # --- Schema OpenAPI personalizado (Bearer JWT) ---
+    app.openapi = custom_openapi(app)  # type: ignore[method-assign]
 
     return app
 

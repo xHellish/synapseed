@@ -3,6 +3,7 @@
 # ============================================
 # Imagen separada para el worker que ejecuta el pipeline IA.
 # Comparte la base con el backend pero su entrypoint es Celery.
+# DB: Supabase (externa). No requiere postgres local.
 
 FROM python:3.12-slim AS base
 
@@ -21,13 +22,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gcc \
     && rm -rf /var/lib/apt/lists/*
 
-FROM base
+# ---------- Worker (única etapa) ----------
+FROM base AS worker
 
 COPY pyproject.toml ./
 COPY app ./app
 
+# El worker comparte todas las dependencias runtime del backend
 RUN pip install --upgrade pip && \
-    pip install -e ".[dev]" && \
+    pip install -e "." && \
     rm -rf /root/.cache/pip
 
 # Healthcheck: Celery responde a ping
@@ -38,9 +41,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 #   - concurrency=1     → un caso a la vez (recomendación del spec)
 #   - prefetch=1        → toma una tarea a la vez
 #   - time_limit=600s   → 10 min max por tarea (evita que se cuelgue)
-CMD ["sh", "-c", "celery -A app.workers.celery_app worker \
-        --loglevel=info \
-        --concurrency=1 \
-        --prefetch-multiplier=1 \
-        --time-limit=600 \
-        --max-tasks-per-child=50"]
+CMD ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=info", "--concurrency=1", "--prefetch-multiplier=1", "--time-limit=600", "--max-tasks-per-child=50"]
