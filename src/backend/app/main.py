@@ -3,6 +3,7 @@
 Expone los siguientes endpoints:
 
 * ``/api/v1/health``          → health check
+* ``/api/v1/auth/register``   → registro de nuevo usuario
 * ``/api/v1/auth/login``      → login (JWT)
 * ``/api/v1/users/me``        → perfil autenticado
 * ``/api/v1/zones``           → CRUD de zonas agrícolas

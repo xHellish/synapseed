@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import (
@@ -12,13 +13,77 @@ from app.core.security import (
 from app.db.session import get_db
 from app.models.audit_log import AuditAction
 from app.repositories import AuditRepository, UserRepository
-from app.schemas.auth import LoginRequest, TokenResponse, UserProfile
+from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserProfile
 
 router = APIRouter(
     prefix="/auth",
     tags=["auth"],
     responses={401: {"description": "Credenciales inválidas"}},
 )
+
+
+class RegisterResponse(BaseModel):
+    id: int
+    identification: str
+    full_name: str
+    email: EmailStr
+    phone: str | None = None
+
+
+@router.post(
+    "/register",
+    response_model=RegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Registro de nuevo usuario",
+    description=(
+        "Crea una cuenta de usuario con cédula, correo y contraseña.\n\n"
+        "Retorna los datos del usuario creado (sin contraseña)."
+    ),
+    responses={
+        201: {"description": "Usuario creado exitosamente"},
+        409: {"description": "La cédula o el correo ya están registrados"},
+    },
+)
+async def register(
+    payload: RegisterRequest,
+    db: AsyncSession = Depends(get_db),
+) -> RegisterResponse:
+    users = UserRepository(db)
+
+    # Validar unicidad de cédula
+    if await users.exists_identification(payload.identification):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El número de cédula ya está registrado",
+        )
+
+    # Validar unicidad de correo
+    if await users.exists_email(payload.email):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El correo electrónico ya está registrado",
+        )
+
+    # Crear usuario
+    user = await users.create_user(
+        {
+            "identification": payload.identification,
+            "password_hash": get_password_hash(payload.password),
+            "full_name": payload.full_name,
+            "email": payload.email,
+            "phone": payload.phone,
+            "is_active": True,
+            "is_verified": False,
+        }
+    )
+
+    return RegisterResponse(
+        id=user.id,
+        identification=user.identification,
+        full_name=user.full_name,
+        email=user.email,
+        phone=user.phone,
+    )
 
 
 @router.post(

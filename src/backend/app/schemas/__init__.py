@@ -12,10 +12,12 @@ from app.schemas.agent_recommendations import (
     ProductRecommendation,
     SynthesisOutput,
 )
+from app.schemas.auth import RegisterRequest
 from app.schemas.farmer_input import FarmerContextInput
 
 __all__ = [
     "FarmerContextInput",
+    "RegisterRequest",
     "AgronomicConditions",
     "ContextAnalysisOutput",
     "ProductCandidate",
