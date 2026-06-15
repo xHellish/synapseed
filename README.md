@@ -6,7 +6,7 @@
 SynapSeed es un proyecto del curso **Diseño de Software — TEC** (Caso 2) que ayuda a los
 agricultores a encontrar el agroquímico más recomendado para su caso, junto con los
 distribuidores autorizados. El motor de recomendaciones es un pipeline de **4 agentes IA
-(LangGraph + Gemini)** que analiza el contexto del agricultor, busca productos con
+(LangGraph + OpenRouter)** que analiza el contexto del agricultor, busca productos con
 búsqueda semántica (RAG + pgvector), valida contra regulaciones del SFE/MAG y sintetiza
 **exactamente 3 recomendaciones** con tabla comparativa.
 
@@ -39,7 +39,7 @@ búsqueda semántica (RAG + pgvector), valida contra regulaciones del SFE/MAG y 
 | python-jose | react-router-dom 7 | |
 | Celery 5.4 | react-hook-form + zod | |
 | LangGraph 1.2 | Vitest, ESLint | |
-| Gemini (langchain-google-genai) | | |
+| OpenRouter (langchain-openai) | | |
 
 ---
 
@@ -82,11 +82,9 @@ SynapSeed/
 
 - [Docker](https://www.docker.com/) 24+ y Docker Compose v2
 - [Git](https://git-scm.com/)
-- Una API key de **Google Gemini** — obtener gratis en
-  [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-
-> Si querés correr el backend sin Docker: Python 3.12+ y un Postgres+Redis locales
-> (no recomendado para desarrollo, pero útil para iterar sobre un solo servicio).
+- Una API key de **OpenRouter** — obtener en [openrouter.ai/keys](https://openrouter.ai/keys)
+- Una API key de **Google AI Studio** — obtener en [aistudio.google.com](https://aistudio.google.com) (para embeddings gratuitos)
+- Un proyecto en **Supabase** — crear gratis en [supabase.com](https://supabase.com) ( PostgreSQL + pgvector incluido)
 
 ### 2. Clonar y configurar
 
@@ -97,8 +95,11 @@ cd synapseed
 # Copiar las variables de entorno
 cp .env.example .env
 
-# IMPORTANTE: editar .env y poner tu GEMINI_API_KEY real
-# (reemplazar "your-gemini-api-key-here")
+# IMPORTANTE: editar .env y configurar:
+# 1. OPENROUTER_API_KEY — tu key de OpenRouter (chat LLM)
+# 2. GEMINI_API_KEY — tu key de Google AI Studio (embeddings)
+# 3. DATABASE_URL — connection string de Supabase (Settings → Database → URI)
+# 4. SUPABASE_URL y SUPABASE_ANON_KEY — de tu proyecto Supabase
 ```
 
 ### 3. Levantar el stack completo con Docker Compose

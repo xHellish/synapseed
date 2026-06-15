@@ -341,7 +341,7 @@ graph TD
     subgraph "Infrastructure"
         DB[(PostgreSQL + pgvector)]
         Q[Redis / Celery Queue]
-        LLM[Gemini API]
+        LLM[OpenRouter API]
     end
 
     R --> S
@@ -477,7 +477,7 @@ sequenceDiagram
     participant A3 as Agente Validador
     participant A4 as Agente Sintetizador
     participant DB as PostgreSQL
-    participant LLM as Gemini API
+    participant LLM as OpenRouter API
 
     U->>API: POST /recommendations (plan)
     API->>DB: Crear ticket (status: pending)
@@ -552,8 +552,8 @@ El flujo completo sigue el patrón `HTTP 202 Accepted + SSE`:
 ##### Rate Limiting y Backoff
 
 ```python
-# Estrategia para Gemini API Free Tier:
-# - 15 RPM (requests per minute) para Gemini 1.5 Flash
+# Estrategia para OpenRouter API:
+# - Rate limit configurable (default 20 RPM)
 # - Token bucket rate limiter en el worker
 # - Exponential backoff en HTTP 429: 2s → 4s → 8s → 16s → 32s (max 5 retries)
 # - La cola actúa como amortiguador natural
@@ -867,7 +867,7 @@ El MVP demostrará el **flujo completo end-to-end**:
 2. ✅ CRUD de zonas/fincas (nombre, suelo, humedad, temperatura, agua, ubicación)
 3. ✅ Wizard de gestión del caso (zona → contexto ambiental → problema → confirmación) — todo con dropdowns
 4. ✅ Envío asíncrono de solicitud (HTTP 202 + ticket_id)
-5. ✅ Pipeline de 4 agentes con Gemini API (free tier)
+5. ✅ Pipeline de 4 agentes con OpenRouter API
 6. ✅ Progreso en tiempo real vía SSE (4 pasos animados)
 7. ✅ Resultado: 3 productos recomendados + tabla comparativa
 8. ✅ Sección de proveedores con botón "Contactar" (mailto:)

@@ -78,6 +78,30 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # --- Health check (DB + Redis + LLM API) ---
+    @app.get(
+        f"{settings.api_v1_prefix}/health",
+        tags=["health"],
+        summary="Health check del sistema",
+    )
+    async def health() -> dict:
+        """Verifica el estado del backend y sus dependencias externas.
+
+        En la fase 0 retorna solo metadata. En la fase 2 agregamos checks
+        reales contra PostgreSQL, Redis y OpenRouter API.
+        """
+        return {
+            "status": "ok",
+            "version": __version__,
+            "env": settings.app_env,
+            "service": "synapseed-backend",
+            "checks": {
+                "database": "pending",
+                "redis": "pending",
+                "openrouter": "pending",
+            },
+        }
+
     # --- Root: metadata simple ---
     @app.get("/", tags=["meta"], include_in_schema=False)
     async def root() -> dict:

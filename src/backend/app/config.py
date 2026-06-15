@@ -33,15 +33,17 @@ class Settings(BaseSettings):
     project_name: str = "SynapSeed"
     api_v1_prefix: str = "/api/v1"
 
-    # --- Base de datos ---
+    # --- Base de datos (Supabase o local) ---
     database_url: str = Field(
         default="postgresql+asyncpg://synapseed:synapseed@localhost:5432/synapseed",
-        description="URL asyncpg para SQLAlchemy.",
+        description="URL asyncpg para SQLAlchemy (Supabase pooler o local).",
     )
     database_url_sync: str = Field(
         default="postgresql+psycopg2://synapseed:synapseed@localhost:5432/synapseed",
         description="URL síncrona para Alembic.",
     )
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
     db_pool_size: int = 20
     db_max_overflow: int = 10
 
@@ -61,13 +63,17 @@ class Settings(BaseSettings):
         default_factory=lambda: ["http://localhost:5173", "http://localhost:3000"],
     )
 
-    # --- Google Gemini ---
+    # --- OpenRouter (Chat LLM) ---
+    openrouter_api_key: str = "your-openrouter-api-key-here"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_chat_model: str = "meta-llama/llama-3.1-8b-instruct:free"
+    openrouter_rpm_limit: int = 20
+    openrouter_max_retries: int = 5
+
+    # --- Google Gemini (Embeddings — gratuito) ---
     gemini_api_key: str = "your-gemini-api-key-here"
-    gemini_model: str = "gemini-2.0-flash"
-    gemini_embedding_model: str = "text-embedding-004"
-    gemini_embedding_dim: int = 768
-    gemini_rpm_limit: int = 15
-    gemini_max_retries: int = 5
+    google_embedding_model: str = "models/text-embedding-004"
+    embedding_dim: int = 768
 
     # --- SSE ---
     sse_keepalive_interval: int = 15

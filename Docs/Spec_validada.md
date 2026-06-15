@@ -21,7 +21,7 @@
 | Celery | react-hook-form + zod |  |
 | Redis | Vitest, ESLint |  |
 | LangGraph |  |  |
-| Gemini (langchain-google-genai) |  |  |
+| OpenRouter (langchain-openai) |  |  |
 | pgvector |  |  |
 | pytest, Ruff |  |  |
 
@@ -189,7 +189,7 @@ Paso 4: Confirmación
 
 ## 8. Variables .env requeridas
 
-> Ver `.env` para todas las claves (DB, Redis, JWT, Gemini, etc)
+> Ver `.env` para todas las claves (DB, Redis, JWT, OpenRouter, etc)
 
 ---
 

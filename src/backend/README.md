@@ -1,7 +1,7 @@
 # SynapSeed — Backend
 
 API REST construida con **FastAPI 0.115 + Python 3.12** que sirve al frontend
-de SynapSeed y orquesta el pipeline de agentes IA (LangGraph + Gemini).
+de SynapSeed y orquesta el pipeline de agentes IA (LangGraph + OpenRouter).
 
 ## Estructura
 
@@ -40,7 +40,7 @@ pip install -e ".[dev]"
 
 # Variables de entorno
 cp ../../.env.example ../../.env
-# editar ../../.env y poner tu GEMINI_API_KEY
+# editar ../../.env y poner tu OPENROUTER_API_KEY
 
 # Aplicar migraciones (cuando existan en fase 1)
 alembic upgrade head
