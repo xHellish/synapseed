@@ -1,3 +1,12 @@
+"""Utilidades de seguridad (helpers locales).
+
+La autenticación principal usa Supabase Auth; ver ``app.core.supabase``.
+
+Helpers heredados para compatibilidad (zones, catalogs, etc.):
+- ``get_password_hash`` / ``verify_password`` (bcrypt local)
+- ``create_access_token`` / ``decode_access_token`` (JWT local)
+"""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
