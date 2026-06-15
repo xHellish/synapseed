@@ -6,7 +6,7 @@
 
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 
-import { App } from '@/App'
+// import { App } from '@/App'
 import { ProtectedRoute } from '@/app/ProtectedRoute'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { RegisterPage } from '@/features/auth/RegisterPage'

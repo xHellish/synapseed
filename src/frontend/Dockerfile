@@ -1,28 +1,48 @@
 # ============================================
-# SynapSeed — Frontend Dockerfile (Vite dev server)
+# SynapSeed — Frontend Dockerfile
 # ============================================
-# Imagen para desarrollo con HMR. Para producción usar
-# `vite build` + servidor estático (Nginx) en otra etapa.
+# Dev: Vite HMR con volúmenes montados desde docker-compose.
+# Prod: multi-stage con build estático servido por Nginx.
 
-FROM node:20-alpine
+# ---------- Etapa de desarrollo ----------
+FROM node:20-alpine AS dev
 
 WORKDIR /app
 
-# Copiar manifest primero para cache de dependencias
-COPY package.json ./
+# Copiar manifests primero para aprovechar caché de capas
+COPY package.json package-lock.json ./
 
-# Si usás pnpm/npm con lockfile, lo copiamos también:
-# COPY package-lock.json pnpm-lock.yaml yarn.lock* ./
+# Instalar dependencias con ci para reproducibilidad
+RUN npm ci --no-audit --no-fund
 
-# (en dev montamos los volúmenes desde docker-compose,
-#  por lo que npm install corre dentro del contenedor)
-RUN npm install --no-audit --no-fund || true
-
-# Copiar el resto del código
+# El resto del código lo montan los volúmenes de docker-compose
+# (solo copiamos aquí para que la imagen sea autosuficiente si no se monta)
 COPY . .
 
 EXPOSE 5173
 
-# Vite dev server escucha en 0.0.0.0:5173
-# (HMR funciona porque montamos el código como volumen)
+# Vite dev server escucha en todas las interfaces (necesario en contenedor)
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+# ---------- Etapa de build estático ----------
+FROM dev AS builder
+
+RUN npm run build
+
+# ---------- Etapa de producción (Nginx) ----------
+FROM nginx:1.27-alpine AS prod
+
+# Configuración mínima de Nginx para SPA
+RUN echo 'server { \
+    listen 80; \
+    root /usr/share/nginx/html; \
+    index index.html; \
+    location / { try_files $uri $uri/ /index.html; } \
+    location /api/ { return 502; } \
+}' > /etc/nginx/conf.d/default.conf
+
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

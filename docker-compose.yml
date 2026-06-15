@@ -1,39 +1,24 @@
 # ============================================
 # SynapSeed — Docker Compose (desarrollo local)
 # ============================================
-# Levanta todo el stack: postgres+pgvector, redis, backend, worker y frontend.
-# Uso: docker compose up -d
+# Stack: redis + backend (FastAPI) + worker (Celery) + frontend (Vite HMR)
+# DB: Supabase (externa) — no se levanta postgres localmente.
+#
+# Uso rápido:
+#   docker compose up -d            → levantar todo en background
+#   docker compose logs -f backend  → ver logs del backend
+#   docker compose down             → bajar todo
+#
+# Accesos una vez levantado:
+#   Frontend  → http://localhost:5173
+#   Swagger   → http://localhost:8000/docs
+#   ReDoc     → http://localhost:8000/redoc
+#   API       → http://localhost:8000/api/v1
 
 services:
-  # -----------------------------------------------------------
-  # PostgreSQL 16 con extensión pgvector (solo para desarrollo local)
-  # Si usas Supabase, no necesitas este servicio.
-  # Activar con: docker compose --profile local up postgres
-  # -----------------------------------------------------------
-  postgres:
-    image: pgvector/pgvector:pg16
-    container_name: synapseed-postgres
-    restart: unless-stopped
-    profiles:
-      - local
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-synapseed}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-synapseed}
-      POSTGRES_DB: ${POSTGRES_DB:-synapseed}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-synapseed} -d ${POSTGRES_DB:-synapseed}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - synapseed-net
 
   # -----------------------------------------------------------
-  # Redis 7 (broker de Celery + cache + pub/sub para SSE)
+  # Redis 7 — broker de Celery + pub/sub SSE
   # -----------------------------------------------------------
   redis:
     image: redis:7-alpine
@@ -49,40 +34,64 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 5s
     networks:
       - synapseed-net
 
   # -----------------------------------------------------------
-  # Backend — FastAPI (uvicorn con autoreload)
+  # Backend — FastAPI + Uvicorn (autoreload en dev)
+  # Swagger disponible en http://localhost:8000/docs
   # -----------------------------------------------------------
   backend:
     build:
       context: ./src/backend
       dockerfile: Dockerfile
+      target: dev
     container_name: synapseed-backend
     restart: unless-stopped
+
+    # Lee el .env de la raíz del repo
     env_file:
       - .env
+
+    # Sobreescribe solo las URLs internas de Docker (redis usa el nombre del servicio)
     environment:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
+      # Permite que Swagger sea accesible desde el browser del host
+      BACKEND_CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000","http://localhost:8000"]'
+
     depends_on:
       redis:
         condition: service_healthy
+
     ports:
       - "${BACKEND_PORT:-8000}:8000"
+
+    # Montamos solo el código fuente y alembic para hot-reload
     volumes:
       - ./src/backend/app:/app/app
-      - ./src/backend/tests:/app/tests
+      - ./src/backend/alembic:/app/alembic
+      - ./src/backend/alembic.ini:/app/alembic.ini
+
+    # Corre migraciones primero, luego levanta uvicorn con reload
     command: >
-      sh -c "alembic upgrade head;
-             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app"
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
     networks:
       - synapseed-net
 
   # -----------------------------------------------------------
-  # Worker — Celery ejecutando el pipeline LangGraph
+  # Worker — Celery ejecutando el pipeline LangGraph / IA
   # -----------------------------------------------------------
   worker:
     build:
@@ -90,57 +99,76 @@ services:
       dockerfile: Dockerfile.worker
     container_name: synapseed-worker
     restart: unless-stopped
+
     env_file:
       - .env
+
     environment:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
+
     depends_on:
       redis:
         condition: service_healthy
       backend:
-        condition: service_started
+        condition: service_healthy
+
     volumes:
       - ./src/backend/app:/app/app
-    command: >
-      sh -c "celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --prefetch-multiplier=1"
+
     networks:
       - synapseed-net
 
   # -----------------------------------------------------------
-  # Frontend — Vite dev server
+  # Frontend — Vite dev server con HMR
+  # Accesible en http://localhost:5173
+  # El proxy de Vite enruta /api → backend:8000 dentro de la red Docker
   # -----------------------------------------------------------
   frontend:
     build:
       context: ./src/frontend
       dockerfile: Dockerfile
+      target: dev
     container_name: synapseed-frontend
     restart: unless-stopped
+
     environment:
-      VITE_API_URL: http://localhost:${BACKEND_PORT:-8000}/api/v1
+      # Apunta al servicio backend dentro de la red Docker
+      # Vite proxy usa esta variable para redirigir /api/* → backend:8000
+      VITE_API_URL: http://backend:8000
+
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
+
+    # Monta código fuente para HMR; node_modules queda en volumen anónimo
     volumes:
-      - ./src/frontend:/app
+      - ./src/frontend/src:/app/src
+      - ./src/frontend/public:/app/public
+      - ./src/frontend/index.html:/app/index.html
+      - ./src/frontend/vite.config.ts:/app/vite.config.ts
+      - ./src/frontend/vite.config.js:/app/vite.config.js
       - frontend_node_modules:/app/node_modules
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+
     networks:
       - synapseed-net
 
 # ============================================
-# Volúmenes y redes
+# Volúmenes persistentes
 # ============================================
 volumes:
-  postgres_data:
-    driver: local
   redis_data:
     driver: local
   frontend_node_modules:
     driver: local
 
+# ============================================
+# Red interna compartida entre servicios
+# ============================================
 networks:
   synapseed-net:
     driver: bridge

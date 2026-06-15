@@ -17,9 +17,10 @@ class TokenResponse(BaseModel):
 class UserProfile(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: str
+    id: int
     identification: str
     full_name: str
     email: EmailStr
     phone: str | None = None
     is_active: bool = True
+    is_verified: bool = False
