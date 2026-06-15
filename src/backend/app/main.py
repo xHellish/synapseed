@@ -113,13 +113,14 @@ def create_app() -> FastAPI:
             "api": settings.api_v1_prefix,
         }
 
-    # Aquí en fases siguientes se agregan routers:
-    # app.include_router(auth.router, prefix=settings.api_v1_prefix)
-    # app.include_router(users.router, prefix=settings.api_v1_prefix)
-    # app.include_router(zones.router, prefix=settings.api_v1_prefix)
-    # app.include_router(recommendations.router, prefix=settings.api_v1_prefix)
-    # app.include_router(providers.router, prefix=settings.api_v1_prefix)
-    # app.include_router(catalogs.router, prefix=settings.api_v1_prefix)
+    from app.api.v1 import auth, catalogs, health, recommendations, users, zones
+
+    app.include_router(health.router, prefix=settings.api_v1_prefix)
+    app.include_router(auth.router, prefix=settings.api_v1_prefix)
+    app.include_router(users.router, prefix=settings.api_v1_prefix)
+    app.include_router(zones.router, prefix=settings.api_v1_prefix)
+    app.include_router(catalogs.router, prefix=settings.api_v1_prefix)
+    app.include_router(recommendations.router, prefix=settings.api_v1_prefix)
 
     return app
 
