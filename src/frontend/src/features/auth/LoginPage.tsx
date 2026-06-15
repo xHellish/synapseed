@@ -61,7 +61,7 @@ export function LoginPage() {
       setToastTitle('Inicio de sesión exitoso')
       setToastDescription('Redirigiendo a tu zona protegida...')
       setToastOpen(true)
-      window.setTimeout(() => navigate('/dashboard'), 300)
+      window.setTimeout(() => navigate('/zones'), 300)
     } catch (error: unknown) {
       const message = axios.isAxiosError(error)
         ? error.response?.data?.detail ?? 'No fue posible iniciar sesión. Verifique sus credenciales.'
