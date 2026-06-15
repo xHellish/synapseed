@@ -10,7 +10,14 @@ import { App } from '@/App'
 import { ProtectedRoute } from '@/app/ProtectedRoute'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { RegisterPage } from '@/features/auth/RegisterPage'
+import { AccountPage } from '@/features/account/AccountPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
+import { ZonesPage } from '@/features/zones/ZonesPage'
+import { AddZonePage } from '@/features/zones/AddZonePage'
+import { CaseWizardStep1 } from '@/features/wizard/CaseWizardStep1'
+import { CaseWizardConfirm } from '@/features/wizard/CaseWizardConfirm'
+import { CaseWizardStep3 } from '@/features/wizard/CaseWizardStep3'
+import { CaseWizardStep4 } from '@/features/wizard/CaseWizardStep4'
 
 export const router = createBrowserRouter([
   {
@@ -21,7 +28,17 @@ export const router = createBrowserRouter([
   { path: '/register', element: <RegisterPage /> },
   {
     element: <ProtectedRoute />,
-    children: [{ path: '/dashboard', element: <DashboardPage /> }],
+    children: [
+      { path: '/dashboard', element: <DashboardPage /> },
+      { path: '/zones', element: <ZonesPage /> },
+      { path: '/zones/new', element: <AddZonePage /> },
+      { path: '/cases', element: <CaseWizardStep1 /> },
+      { path: '/cases/wizard/step-1', element: <CaseWizardStep1 /> },
+      { path: '/cases/wizard/step-2', element: <CaseWizardConfirm /> },
+      { path: '/recommendations/:id', element: <CaseWizardStep3 /> },
+      { path: '/recommendations/:id/providers', element: <CaseWizardStep4 /> },
+      { path: '/account', element: <AccountPage /> },
+    ],
   },
   //     { path: '/wizard', element: <ContextWizardPage /> },
   //     { path: '/recommendations/:id', element: <RecommendationResultPage /> },
