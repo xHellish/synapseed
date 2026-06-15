@@ -19,6 +19,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
+from app.api.v1.router import api_router
 from app.config import get_settings
 
 # Configurar logging antes de cualquier otra cosa
@@ -113,13 +114,8 @@ def create_app() -> FastAPI:
             "api": settings.api_v1_prefix,
         }
 
-    # Aquí en fases siguientes se agregan routers:
-    # app.include_router(auth.router, prefix=settings.api_v1_prefix)
-    # app.include_router(users.router, prefix=settings.api_v1_prefix)
-    # app.include_router(zones.router, prefix=settings.api_v1_prefix)
-    # app.include_router(recommendations.router, prefix=settings.api_v1_prefix)
-    # app.include_router(providers.router, prefix=settings.api_v1_prefix)
-    # app.include_router(catalogs.router, prefix=settings.api_v1_prefix)
+    app.include_router(api_router, prefix=settings.api_v1_prefix)
+    # Fases siguientes: zones, recommendations, providers, catalogs
 
     return app
 
