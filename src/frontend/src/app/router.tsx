@@ -7,19 +7,22 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 
 import { App } from '@/App'
+import { ProtectedRoute } from '@/app/ProtectedRoute'
+import { LoginPage } from '@/features/auth/LoginPage'
+import { RegisterPage } from '@/features/auth/RegisterPage'
+import { DashboardPage } from '@/features/dashboard/DashboardPage'
 
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <App />,
+    element: <Navigate to="/login" replace />,
   },
-  // En fases siguientes:
-  // { path: '/login', element: <LoginPage /> },
-  // { path: '/register', element: <RegisterPage /> },
-  // {
-  //   element: <ProtectedRoute />,
-  //   children: [
-  //     { path: '/dashboard', element: <DashboardPage /> },
+  { path: '/login', element: <LoginPage /> },
+  { path: '/register', element: <RegisterPage /> },
+  {
+    element: <ProtectedRoute />,
+    children: [{ path: '/dashboard', element: <DashboardPage /> }],
+  },
   //     { path: '/wizard', element: <ContextWizardPage /> },
   //     { path: '/recommendations/:id', element: <RecommendationResultPage /> },
   //     { path: '/history', element: <HistoryPage /> },
