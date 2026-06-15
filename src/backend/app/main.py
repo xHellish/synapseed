@@ -78,30 +78,6 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # --- Health check (DB + Redis + LLM API) ---
-    @app.get(
-        f"{settings.api_v1_prefix}/health",
-        tags=["health"],
-        summary="Health check del sistema",
-    )
-    async def health() -> dict:
-        """Verifica el estado del backend y sus dependencias externas.
-
-        En la fase 0 retorna solo metadata. En la fase 2 agregamos checks
-        reales contra PostgreSQL, Redis y Gemini API.
-        """
-        return {
-            "status": "ok",
-            "version": __version__,
-            "env": settings.app_env,
-            "service": "synapseed-backend",
-            "checks": {
-                "database": "pending",
-                "redis": "pending",
-                "gemini": "pending",
-            },
-        }
-
     # --- Root: metadata simple ---
     @app.get("/", tags=["meta"], include_in_schema=False)
     async def root() -> dict:
@@ -113,13 +89,14 @@ def create_app() -> FastAPI:
             "api": settings.api_v1_prefix,
         }
 
-    # Aquí en fases siguientes se agregan routers:
-    # app.include_router(auth.router, prefix=settings.api_v1_prefix)
-    # app.include_router(users.router, prefix=settings.api_v1_prefix)
-    # app.include_router(zones.router, prefix=settings.api_v1_prefix)
-    # app.include_router(recommendations.router, prefix=settings.api_v1_prefix)
-    # app.include_router(providers.router, prefix=settings.api_v1_prefix)
-    # app.include_router(catalogs.router, prefix=settings.api_v1_prefix)
+    from app.api.v1 import auth, catalogs, health, recommendations, users, zones
+
+    app.include_router(health.router, prefix=settings.api_v1_prefix)
+    app.include_router(auth.router, prefix=settings.api_v1_prefix)
+    app.include_router(users.router, prefix=settings.api_v1_prefix)
+    app.include_router(zones.router, prefix=settings.api_v1_prefix)
+    app.include_router(catalogs.router, prefix=settings.api_v1_prefix)
+    app.include_router(recommendations.router, prefix=settings.api_v1_prefix)
 
     return app
 
