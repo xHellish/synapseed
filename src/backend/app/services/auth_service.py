@@ -92,8 +92,14 @@ async def register_user(db: AsyncSession, data: UserRegister) -> User:
     return user
 
 
-async def authenticate_user(db: AsyncSession, data: UserLogin) -> tuple[User, SupabaseSession]:
-    """Login con cédula: resuelve email en ``users`` y autentica en Supabase."""
+async def authenticate_user(db: AsyncSession, data: UserLogin) -> tuple[User, SupabaseSession | None]:
+    """Login con cédula: resuelve email en ``users`` y autentica en Supabase.
+
+    Soporta backward-compatibility:
+    - Usuarios registrados con bcrypt local (password_hash) intentan Supabase;
+      si Supabase no los tiene, se verifica contra el hash local.
+    - Usuarios registrados via Supabase Auth se autentican normalmente.
+    """
     user = await _get_user_by_identification(db, data.identification)
     if user is None:
         raise AuthError("Cédula o contraseña incorrectos", status_code=401)
@@ -101,21 +107,36 @@ async def authenticate_user(db: AsyncSession, data: UserLogin) -> tuple[User, Su
     if not user.is_active:
         raise AuthError("Cuenta desactivada", status_code=403)
 
+    # Intentar Supabase Auth primero
     try:
         session = await sign_in_with_password(user.email, data.password)
+        # Vincular auth_user_id si no estaba seteado
+        if user.auth_user_id is None:
+            user.auth_user_id = session.auth_user_id
+            await db.commit()
+            await db.refresh(user)
+        return user, session
     except SupabaseAuthError as exc:
-        if exc.status_code == 401:
-            raise AuthError("Cédula o contraseña incorrectos", status_code=401) from exc
-        raise AuthError(exc.message, status_code=exc.status_code) from exc
+        # Si el error no es 401 (credenciales), propagar
+        if exc.status_code != 401:
+            raise AuthError(exc.message, status_code=exc.status_code) from exc
 
-    if user.auth_user_id is None:
-        user.auth_user_id = session.auth_user_id
-        await db.commit()
-        await db.refresh(user)
-    elif user.auth_user_id != session.auth_user_id:
-        raise AuthError("Cédula o contraseña incorrectos", status_code=401)
+    # Fallback: verificar contra password_hash local (backward-compatibilidad)
+    if user.password_hash:
+        from app.core.security import verify_password
+        from app.core.security import create_access_token as local_create_token
+        if verify_password(data.password, user.password_hash):
+            fake_token = local_create_token(subject=str(user.id))
+            fake_session = SupabaseSession(
+                access_token=fake_token,
+                refresh_token="",
+                expires_in=86400,
+                auth_user_id=user.auth_user_id if user.auth_user_id is not None else UUID(int=user.id),
+                email=user.email,
+            )
+            return user, fake_session
 
-    return user, session
+    raise AuthError("Cédula o contraseña incorrectos", status_code=401)
 
 
 def build_token_response(user: User, session: SupabaseSession) -> dict:
@@ -130,7 +151,38 @@ def build_token_response(user: User, session: SupabaseSession) -> dict:
 
 
 async def resolve_user_from_token(db: AsyncSession, access_token: str) -> User:
-    """Valida JWT de Supabase y carga el usuario de la tabla ``users``."""
+    """Valida JWT y carga el usuario de la tabla ``users``.
+
+    Soporta dos tipos de token:
+    1. **JWT local** (firmado con ``JWT_SECRET``): emitido por el fallback de bcrypt.
+       El campo ``sub`` contiene el ``user.id`` como string numérico.
+    2. **JWT de Supabase**: emitido por Supabase Auth.
+       Se valida contra la API de Supabase ``/auth/v1/user``.
+    """
+    # --- Intentar decodificar como JWT local primero ---
+    from app.core.security import decode_access_token as _local_decode
+
+    try:
+        payload = _local_decode(access_token)
+        sub = payload.get("sub", "")
+        # Token local: sub es el user.id (entero serializado como str)
+        if sub.isdigit():
+            result = await db.execute(select(User).where(User.id == int(sub)))
+            user = result.scalar_one_or_none()
+            if user is None:
+                raise AuthError("Usuario no encontrado", status_code=401)
+            if not user.is_active:
+                raise AuthError("Cuenta desactivada", status_code=403)
+            return user
+        # sub no es numérico → podría ser un token de Supabase con formato UUID;
+        # caemos al path de Supabase abajo.
+    except AuthError:
+        raise
+    except Exception:
+        # No es un JWT local válido → intentar con Supabase
+        pass
+
+    # --- Intentar validar como JWT de Supabase ---
     try:
         auth_user = await supabase_get_user(access_token)
     except SupabaseAuthError as exc:

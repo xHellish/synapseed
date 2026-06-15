@@ -8,7 +8,8 @@ import { useNavigate } from 'react-router-dom'
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { useWizardStore } from '@/stores/wizardStore'
-import { caseStep1Schema, CaseStep1Form } from './schemas'
+import { caseStep1Schema } from './schemas'
+import type { CaseStep1Form } from './schemas'
 
 function Stepper({ step }: { step: number }) {
   const steps = ['Datos del caso', 'Confirmación', 'Recomendaciones', 'Proveedores']
@@ -44,7 +45,7 @@ export function CaseWizardStep1() {
   const navigate = useNavigate()
 
   // form
-  const { register, handleSubmit, reset, formState } = useForm<CaseStep1Form>({ resolver: zodResolver(caseStep1Schema) })
+  const { register, handleSubmit, reset } = useForm<CaseStep1Form>({ resolver: zodResolver(caseStep1Schema) })
 
   // fetch catalogs
   const fetchCatalog = async (url: string) => {

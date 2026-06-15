@@ -57,7 +57,13 @@ export function LoginPage() {
       })
 
       const { access_token, user } = response.data
-      login(access_token, user)
+      // Normalize user object (Supabase auth returns full UserResponse)
+      login(access_token, {
+        id: String(user.id),
+        identification: user.identification,
+        full_name: user.full_name,
+        email: user.email,
+      })
       setToastTitle('Inicio de sesión exitoso')
       setToastDescription('Redirigiendo a tu zona protegida...')
       setToastOpen(true)

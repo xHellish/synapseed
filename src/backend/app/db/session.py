@@ -16,7 +16,12 @@ from app.config import get_settings
 
 
 def create_engine() -> AsyncEngine:
-    """Crea el motor asíncrono de SQLAlchemy."""
+    """Crea el motor asíncrono de SQLAlchemy.
+
+    ``statement_cache_size=0`` es necesario cuando se usa el pooler de
+    Supabase (PgBouncer en modo transacción, puerto 6543). Sin esto,
+    asyncpg falla con ``DuplicatePreparedStatementError``.
+    """
     settings = get_settings()
     return create_async_engine(
         settings.database_url,
@@ -24,6 +29,10 @@ def create_engine() -> AsyncEngine:
         max_overflow=settings.db_max_overflow,
         pool_pre_ping=True,
         echo=settings.debug,
+        connect_args={
+            "statement_cache_size": 0,
+            "prepared_statement_cache_size": 0,
+        },
     )
 
 
