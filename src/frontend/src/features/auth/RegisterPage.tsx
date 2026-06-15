@@ -70,7 +70,7 @@ export function RegisterPage() {
 
   const onSubmit = async (values: RegisterFormValues) => {
     try {
-      await axios.post('/api/auth/register', {
+      await axios.post('/api/v1/auth/register', {
         identification: values.identification.replace(/\s+/g, ''),
         full_name: values.fullName.trim(),
         phone: values.phone.trim(),

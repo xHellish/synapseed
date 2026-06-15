@@ -105,31 +105,31 @@ function Badge({ label, variant }: { label: string; variant: Product['badge_vari
 export function CaseWizardStep3() {
   const token = useAuthStore((s) => s.token)
   const wizardStep = useWizardStore((s) => s.step)
-  const ticketId = useWizardStore((s) => s.data.ticket_id)
   const setStep = useWizardStore((s) => s.setStep)
   const navigate = useNavigate()
+  const { id } = useParams<{ id: string }>()
 
-  const isDemo = ticketId === 'demo' || !ticketId
+  const isDemo = !id || id === 'demo'
 
   const {
     data: recommendation,
     isLoading,
     isError,
   } = useQuery<RecommendationData>({
-    queryKey: ['recommendation', ticketId],
+    queryKey: ['recommendation', id],
     queryFn: async () => {
       if (isDemo) return DEMO_RECOMMENDATION
-      const res = await axios.get(`/api/v1/recommendations/${ticketId}`, {
+      const res = await axios.get(`/api/v1/recommendations/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       return res.data
     },
-    enabled: !!token && !!ticketId,
+    enabled: !!token && !isDemo,
   })
 
   const handleGoToProviders = () => {
     setStep(4)
-    navigate(`/recommendations/${ticketId}/providers`)
+    navigate(`/recommendations/${id}/providers`)
   }
 
   const effectiveRecommendation = recommendation || (isDemo ? DEMO_RECOMMENDATION : null)

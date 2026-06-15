@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import axios from 'axios'
 import * as Toast from '@radix-ui/react-toast'
-import { Lock, Mail, Phone, ShieldCheck, UserRound } from 'lucide-react'
+import { Key, Lock, Mail, Phone, ShieldCheck, UserRound } from 'lucide-react'
 
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
@@ -18,6 +18,7 @@ const profileSchema = z
       .string()
       .trim()
       .regex(/^\+506\s\d{4}\s\d{4}$/, 'Ingrese un teléfono válido con formato +506 8888 8888.'),
+    currentPassword: z.string().optional().or(z.literal('')),
     newPassword: z.string().optional().or(z.literal('')),
     confirmPassword: z.string().optional().or(z.literal('')),
   })
@@ -28,6 +29,10 @@ const profileSchema = z
   .refine((data) => !data.newPassword || data.newPassword === data.confirmPassword, {
     message: 'Las contraseñas no coinciden.',
     path: ['confirmPassword'],
+  })
+  .refine((data) => !data.newPassword || data.currentPassword, {
+    message: 'Debe ingresar su contraseña actual.',
+    path: ['currentPassword'],
   })
 
 type AccountFormValues = z.infer<typeof profileSchema>
@@ -52,6 +57,7 @@ export function AccountPage() {
       fullName: user?.full_name ?? '',
       email: user?.email ?? '',
       phone: '+506 8888 8888',
+      currentPassword: '',
       newPassword: '',
       confirmPassword: '',
     },
@@ -69,7 +75,8 @@ export function AccountPage() {
           identification: profile.identification ?? '',
           fullName: profile.full_name ?? '',
           email: profile.email ?? '',
-          phone: profile.phone ? profile.phone.replace('-', ' ').replace('-', ' ') : '+506 8888 8888',
+          phone: profile.phone?.replace(/-/g, ' ') ?? '+506 8888 8888',
+          currentPassword: '',
           newPassword: '',
           confirmPassword: '',
         })
@@ -109,11 +116,14 @@ export function AccountPage() {
         )
       }
 
-      if (values.newPassword) {
+      if (values.newPassword && values.currentPassword) {
         requests.push(
           axios.put(
             '/api/v1/users/me/password',
-            { password: values.newPassword },
+            {
+              current_password: values.currentPassword,
+              new_password: values.newPassword,
+            },
             { headers: { Authorization: `Bearer ${token}` } },
           ),
         )
@@ -232,7 +242,24 @@ export function AccountPage() {
                 </div>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-5 md:grid-cols-3">
+                <div className="space-y-2">
+                  <label htmlFor="currentPassword" className="text-sm font-medium text-[#111827]">Contraseña actual</label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#6B7280]">
+                      <Key className="h-4 w-4" />
+                    </span>
+                    <input
+                      id="currentPassword"
+                      type="password"
+                      placeholder="••••••••"
+                      className="w-full rounded-xl border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                      {...register('currentPassword')}
+                    />
+                  </div>
+                  {errors.currentPassword && <p className="text-sm text-[#DC2626]">{errors.currentPassword.message}</p>}
+                </div>
+
                 <div className="space-y-2">
                   <label htmlFor="newPassword" className="text-sm font-medium text-[#111827]">Contraseña nueva</label>
                   <div className="relative">
@@ -278,6 +305,7 @@ export function AccountPage() {
                     fullName: user?.full_name ?? '',
                     email: user?.email ?? '',
                     phone: '+506 8888 8888',
+                    currentPassword: '',
                     newPassword: '',
                     confirmPassword: '',
                   })

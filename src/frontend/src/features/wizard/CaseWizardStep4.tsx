@@ -21,10 +21,6 @@ interface Provider {
   location?: string
 }
 
-interface ProvidersData {
-  providers: Provider[]
-}
-
 /* ── Demo data (para visualización sin backend) ── */
 const DEMO_PROVIDERS: Provider[] = [
   {
@@ -93,27 +89,27 @@ function Stepper({ step }: { step: number }) {
 export function CaseWizardStep4() {
   const token = useAuthStore((s) => s.token)
   const wizardStep = useWizardStore((s) => s.step)
-  const ticketId = useWizardStore((s) => s.data.ticket_id)
+  const { id } = useParams<{ id: string }>()
 
-  const isDemo = ticketId === 'demo' || !ticketId
+  const isDemo = !id || id === 'demo'
 
   const {
     data: providersData,
     isLoading,
     isError,
-  } = useQuery<ProvidersData>({
-    queryKey: ['providers', ticketId],
+  } = useQuery({
+    queryKey: ['providers', id],
     queryFn: async () => {
-      if (isDemo) return { providers: DEMO_PROVIDERS }
-      const res = await axios.get(`/api/v1/recommendations/${ticketId}/providers`, {
+      if (isDemo) return DEMO_PROVIDERS
+      const res = await axios.get(`/api/v1/recommendations/${id}/providers`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       return res.data
     },
-    enabled: !!token && !!ticketId,
+    enabled: !!token && !isDemo,
   })
 
-  const providers = (providersData?.providers ?? (isDemo ? DEMO_PROVIDERS : []))
+  const providers = providersData ?? (isDemo ? DEMO_PROVIDERS : [])
 
   /* — Loading state */
   if (isLoading) {

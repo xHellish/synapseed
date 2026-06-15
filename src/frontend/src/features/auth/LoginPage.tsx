@@ -51,7 +51,7 @@ export function LoginPage() {
   const onSubmit = async (values: LoginFormValues) => {
     try {
       const normalizedIdentification = values.identification.replace(/\s+/g, '')
-      const response = await axios.post('/api/auth/login', {
+      const response = await axios.post('/api/v1/auth/login', {
         identification: normalizedIdentification,
         password: values.password,
       })

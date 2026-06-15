@@ -48,11 +48,10 @@ export function CaseWizardConfirm() {
   const mutation = useMutation({
     mutationFn: postRecommendation,
     onSuccess: (res: any) => {
-      const ticket = res.ticket_id
-      update({ ticket_id: ticket })
+      const recId = res.recommendation_id
+      update({ ticket_id: res.ticket_id, recommendation_id: String(recId) })
       setStep(3)
-      // navigate to recommendation detail / progress
-      navigate(`/recommendations/${ticket}`)
+      navigate(`/recommendations/${recId}`)
     },
     onError: () => {
       // TODO: show toast (simple alert for now)

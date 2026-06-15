@@ -15,6 +15,7 @@ export interface WizardData {
   last_agrochemical?: string
   max_budget_per_liter?: number
   ticket_id?: string
+  recommendation_id?: string
 }
 
 interface WizardState {
