@@ -19,7 +19,7 @@ from app.core.supabase import (
     update_user as supabase_update_user,
 )
 from app.models.user import User
-from app.schemas.user import PasswordChange, UserLogin, UserRegister, UserUpdate
+from app.schemas.user import PasswordChange, PasswordResetRequest, UserLogin, UserRegister, UserUpdate
 
 
 class AuthError(Exception):
@@ -307,3 +307,27 @@ async def change_user_password(
         if exc.status_code == 401:
             raise AuthError("La contraseña actual es incorrecta", status_code=400) from exc
         raise AuthError(exc.message, status_code=exc.status_code) from exc
+
+
+async def reset_user_password(db: AsyncSession, data: PasswordResetRequest) -> None:
+    """Restablece contraseña en modo local de desarrollo/demo."""
+    if not _local_auth_enabled():
+        raise AuthError(
+            "La recuperación local de contraseña no está habilitada. Configure Supabase para recuperación por email.",
+            status_code=503,
+        )
+
+    generic_error = "No se pudo restablecer la contraseña con los datos ingresados"
+    result = await db.execute(
+        select(User).where(
+            User.identification == data.identification,
+            User.email == data.email,
+            User.is_active.is_(True),
+        ),
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise AuthError(generic_error, status_code=400)
+
+    user.password_hash = get_password_hash(data.new_password)
+    await db.commit()

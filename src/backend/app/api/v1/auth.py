@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 
 from app.dependencies import DbSession
-from app.schemas.user import TokenResponse, UserLogin, UserRegister, UserResponse
-from app.services.auth_service import AuthError, authenticate_user, build_token_response, register_user
+from app.schemas.user import PasswordResetRequest, TokenResponse, UserLogin, UserRegister, UserResponse
+from app.services.auth_service import AuthError, authenticate_user, build_token_response, register_user, reset_user_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -39,3 +39,18 @@ async def login(data: UserLogin, db: DbSession) -> TokenResponse:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
     return TokenResponse.model_validate(build_token_response(user, session))
+
+
+@router.post(
+    "/reset-password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    summary="Restablecer contraseña en modo local/demo",
+)
+async def reset_password(data: PasswordResetRequest, db: DbSession) -> Response:
+    """Restablece contraseña sin sesión activa solo para desarrollo local."""
+    try:
+        await reset_user_password(db, data)
+    except AuthError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

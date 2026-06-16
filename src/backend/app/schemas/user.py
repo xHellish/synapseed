@@ -97,6 +97,24 @@ class PasswordChange(BaseModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
+class PasswordResetRequest(BaseModel):
+    """Solicitud local de recuperación de contraseña para desarrollo/demo."""
+
+    identification: str = Field(min_length=9, max_length=20)
+    email: str = Field(min_length=5, max_length=255)
+    new_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("identification")
+    @classmethod
+    def validate_identification(cls, value: str) -> str:
+        return _validate_identification(value)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return _validate_email(value)
+
+
 class UserResponse(BaseModel):
     """Usuario serializado para respuestas de la API."""
 
