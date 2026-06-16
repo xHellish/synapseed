@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react'
+import { useWatch } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import axios from 'axios'
@@ -53,7 +54,10 @@ export function CaseWizardStep1() {
   const navigate = useNavigate()
 
   // form
-  const { register, handleSubmit, reset } = useForm<CaseStep1Form>({ resolver: zodResolver(caseStep1Schema) })
+  const { register, handleSubmit, reset, control } = useForm<CaseStep1Form>({ resolver: zodResolver(caseStep1Schema) })
+
+  // Watch finca_id to resolve its display name in real time
+  const watchedFincaId = useWatch({ control, name: 'finca_id' })
 
   // fetch catalogs
   const fetchCatalog = async (url: string) => {
@@ -90,8 +94,9 @@ export function CaseWizardStep1() {
   }, [reset])
 
   const onSubmit = (values: CaseStep1Form) => {
-    // persist into store and advance
-    update(values)
+    // Resolve the finca name from the loaded list and persist into store
+    const selectedFinca = fincasFallback.find((f: any) => String(f.id) === String(values.finca_id))
+    update({ ...values, finca_name: selectedFinca?.name ?? values.finca_id })
     setStep(2)
     navigate('/cases/wizard/step-2')
   }

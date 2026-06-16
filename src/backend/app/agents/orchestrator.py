@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Callable, Awaitable
 
 from app.agents.analyzer_agent import analyze_context
 from app.agents.legal_validator_agent import validate_legal
@@ -35,18 +36,26 @@ class AgentOrchestrator:
         self._product_repo = product_repo
         self._regulation_repo = regulation_repo
 
-    async def run(self, farmer_input: FarmerContextInput) -> PipelineResult:
+    async def run(
+        self,
+        farmer_input: FarmerContextInput,
+        on_step_complete: Callable[[str], Awaitable[None]] | None = None,
+    ) -> PipelineResult:
         """Pipeline completo: contexto → RAG → legal → síntesis."""
         state = PipelineState(farmer_input=farmer_input)
 
         logger.info("Pipeline paso 1/4: Analizador de Contexto")
         state.context_analysis = await analyze_context(farmer_input, self._llm)
         state.mark_step("context_analyzer")
+        if on_step_complete:
+            await on_step_complete("context_analyzer")
 
         assert state.context_analysis is not None
         logger.info("Pipeline paso 2/4: Investigador RAG")
         state.research = await research_products(state.context_analysis, self._product_repo)
         state.mark_step("researcher")
+        if on_step_complete:
+            await on_step_complete("researcher")
 
         assert state.research is not None
         logger.info("Pipeline paso 3/4: Validador Legal")
@@ -57,6 +66,8 @@ class AgentOrchestrator:
             self._llm,
         )
         state.mark_step("legal_validator")
+        if on_step_complete:
+            await on_step_complete("legal_validator")
 
         assert state.legal_validation is not None
         logger.info("Pipeline paso 4/4: Sintetizador")
@@ -66,6 +77,8 @@ class AgentOrchestrator:
             self._llm,
         )
         state.mark_step("synthesizer")
+        if on_step_complete:
+            await on_step_complete("synthesizer")
 
         assert state.synthesis is not None
         return PipelineResult(

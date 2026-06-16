@@ -62,8 +62,20 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 @asynccontextmanager
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Context manager para usar sesión fuera de FastAPI (workers, scripts)."""
-    async with async_session_factory() as session:
+    """Context manager para usar sesión fuera de FastAPI (workers, scripts).
+
+    Crea un engine y session_factory locales para evitar errores de
+    'Future attached to a different loop' al usarse en procesos y tareas
+    de Celery que levantan loops de asyncio locales.
+    """
+    local_engine = create_engine()
+    local_session_factory = async_sessionmaker(
+        local_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autoflush=False,
+    )
+    async with local_session_factory() as session:
         try:
             yield session
         except Exception:
@@ -71,3 +83,4 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
             raise
         finally:
             await session.close()
+            await local_engine.dispose()

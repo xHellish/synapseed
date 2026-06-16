@@ -18,6 +18,28 @@ from app.models.recommendation import RecommendationStatus
 logger = get_task_logger(__name__)
 
 
+async def publish_progress(
+    ticket_id: str,
+    status: str,
+    current_step: str | None = None,
+    error_message: str | None = None,
+) -> None:
+    """Publica el progreso del ticket en un canal de Redis pub/sub."""
+    try:
+        from app.core.redis import get_redis_client
+        import json
+        redis_client = get_redis_client()
+        payload = {
+            "ticket_id": ticket_id,
+            "status": status,
+            "current_step": current_step,
+            "error_message": error_message,
+        }
+        await redis_client.publish(f"recommendation_progress:{ticket_id}", json.dumps(payload))
+    except Exception as exc:
+        logger.error(f"Error al publicar progreso en Redis: {exc}")
+
+
 async def async_run_recommendation_pipeline(ticket_id: str) -> None:
     """Procesa una recomendación asíncronamente en el motor SQLAlchemy."""
     async with get_db_session() as db:
@@ -33,6 +55,7 @@ async def async_run_recommendation_pipeline(ticket_id: str) -> None:
             status=RecommendationStatus.PROCESSING,
             current_step="context_analyzer",
         )
+        await publish_progress(ticket_id, "processing", "context_analyzer")
 
         try:
             # Construir el context input a partir de la recomendación de la DB
@@ -60,8 +83,16 @@ async def async_run_recommendation_pipeline(ticket_id: str) -> None:
                 regulation_repo=regulation_repo,
             )
 
+            async def progress_callback(step: str) -> None:
+                await recommendations.update_status(
+                    recommendation=rec,
+                    status=RecommendationStatus.PROCESSING,
+                    current_step=step,
+                )
+                await publish_progress(ticket_id, "processing", step)
+
             logger.info(f"Ejecutando el pipeline de agentes para ticket {ticket_id}")
-            result = await orchestrator.run(farmer_input)
+            result = await orchestrator.run(farmer_input, on_step_complete=progress_callback)
 
             # Limpiar recomendaciones de productos previas (por si acaso se re-ejecuta)
             await recommendations.remove_products(rec.id)
@@ -101,6 +132,7 @@ async def async_run_recommendation_pipeline(ticket_id: str) -> None:
             # Marcar la recomendación como completada
             logger.info(f"Marcando ticket {ticket_id} como COMPLETED")
             await recommendations.mark_completed(rec)
+            await publish_progress(ticket_id, "completed")
 
         except Exception as exc:
             logger.exception(f"Error procesando el ticket {ticket_id}: {exc}")
@@ -110,6 +142,7 @@ async def async_run_recommendation_pipeline(ticket_id: str) -> None:
             except Exception:
                 pass
             await recommendations.mark_failed(rec, str(exc))
+            await publish_progress(ticket_id, "failed", error_message=str(exc))
 
 
 @celery_app.task(name="app.workers.tasks.generate_recommendation")

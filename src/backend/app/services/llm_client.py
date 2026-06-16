@@ -58,6 +58,8 @@ class LLMClient(ABC):
 def _extract_json(text: str) -> dict[str, Any]:
     """Extrae JSON de respuesta cruda (incluye bloques markdown)."""
     text = text.strip()
+    # Limpiar tokens de padding que algunos modelos gratuitos emiten
+    text = re.sub(r"<\|?pad\|?>", "", text, flags=re.IGNORECASE)
     fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
     if fence:
         text = fence.group(1).strip()

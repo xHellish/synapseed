@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     # --- OpenRouter (Chat LLM) ---
     openrouter_api_key: str = "your-openrouter-api-key-here"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    openrouter_chat_model: str = "meta-llama/llama-3.1-8b-instruct:free"
+    openrouter_chat_model: str = "openrouter/free"
     openrouter_rpm_limit: int = 20
     openrouter_max_retries: int = 5
 

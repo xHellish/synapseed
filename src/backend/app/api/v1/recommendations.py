@@ -46,6 +46,7 @@ async def request_recommendation(
             "water_quality": payload.water_quality,
             "budget_range": str(payload.max_budget_per_liter),
             "last_agrochemical_used": payload.last_agrochemical,
+            "zone_id": payload.zone_id,
             "status": RecommendationStatus.PENDING,
         }
     )
@@ -193,16 +194,70 @@ async def providers(
 @router.get("/stream/{ticket_id}", summary="Stream de progreso (SSE)")
 async def stream(
     ticket_id: str,
-    db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
-    recommendations = RecommendationRepository(db)
-    rec = await recommendations.get_by_ticket_id(ticket_id)
+    from redis.asyncio import Redis
+    from app.config import get_settings
+    import asyncio
+    import json
+    from app.db.session import get_db_session
+    from app.repositories import RecommendationRepository
 
-    current_status = rec.status.value if rec else "not_found"
+    settings = get_settings()
 
     async def event_stream():
-        import json
-        data = json.dumps({"ticket_id": ticket_id, "status": current_status})
-        yield f"event: status\ndata: {data}\n\n"
+        # Primero, obtener el estado actual de la base de datos
+        async with get_db_session() as db:
+            recommendations = RecommendationRepository(db)
+            rec = await recommendations.get_by_ticket_id(ticket_id)
+            if not rec:
+                yield f"event: status\ndata: {json.dumps({'ticket_id': ticket_id, 'status': 'not_found'})}\n\n"
+                return
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+            # Emitir el estado actual al conectarse
+            yield f"event: status\ndata: {json.dumps({'ticket_id': ticket_id, 'status': rec.status.value, 'current_step': rec.current_step, 'error_message': rec.error_message})}\n\n"
+
+            if rec.status.value in ("completed", "failed"):
+                return
+
+        # Si sigue pendiente o en proceso, nos suscribimos a Redis para actualizaciones en tiempo real
+        redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
+        pubsub = redis_client.pubsub()
+        channel = f"recommendation_progress:{ticket_id}"
+        await pubsub.subscribe(channel)
+
+        try:
+            while True:
+                # Escuchar mensajes de Redis pub/sub con un timeout corto para no colgarse
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                if message:
+                    data = message["data"]
+                    yield f"event: status\ndata: {data}\n\n"
+                    # Si el estado es final, terminamos el stream
+                    try:
+                        parsed = json.loads(data)
+                        if parsed.get("status") in ("completed", "failed"):
+                            break
+                    except Exception:
+                        pass
+
+                # Mantener vivo el stream y evitar loops intensivos de CPU
+                await asyncio.sleep(0.5)
+        except asyncio.CancelledError:
+            # El cliente se desconectó
+            pass
+        finally:
+            await pubsub.unsubscribe(channel)
+            await pubsub.close()
+            await redis_client.close()
+
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers=headers,
+    )
