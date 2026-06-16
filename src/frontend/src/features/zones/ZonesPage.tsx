@@ -11,10 +11,11 @@ import { useAuthStore } from '@/stores/authStore'
 interface Zone {
   id: string
   name: string
-  crop: string
+  location: string
   soil_type: string
   humidity: string
   temperature: string
+  water_quality: string
   user_id?: string
 }
 
@@ -99,11 +100,11 @@ export function ZonesPage() {
     const form = new FormData(e.currentTarget)
     const payload = {
       name: String(form.get('name') ?? '').trim(),
-      crop: String(form.get('crop') ?? '').trim(),
+      location: String(form.get('location') ?? '').trim(),
       soil_type: String(form.get('soil_type') ?? '').trim(),
       humidity: String(form.get('humidity') ?? '').trim(),
       temperature: String(form.get('temperature') ?? '').trim(),
-      location: String(form.get('location') ?? '').trim(),
+      water_quality: String(form.get('water_quality') ?? '').trim(),
     }
 
     try {
@@ -182,7 +183,7 @@ export function ZonesPage() {
                 <thead>
                   <tr className="text-left text-sm text-[#6B7280]">
                     <th className="px-3 py-2">Nombre</th>
-                    <th className="px-3 py-2">Cultivo principal</th>
+                    <th className="px-3 py-2">Ubicación</th>
                     <th className="px-3 py-2">Tipo de suelo</th>
                     <th className="px-3 py-2">Humedad</th>
                     <th className="px-3 py-2">Temperatura</th>
@@ -202,7 +203,7 @@ export function ZonesPage() {
                     zones.map((z) => (
                       <tr key={z.id} className="border-t border-[#F1F5F9]">
                         <td className="px-3 py-4 text-sm text-[#111827]">{z.name}</td>
-                        <td className="px-3 py-4 text-sm text-[#111827]">{z.crop}</td>
+                        <td className="px-3 py-4 text-sm text-[#111827]">{z.location}</td>
                         <td className="px-3 py-4 text-sm text-[#111827]">{z.soil_type}</td>
                         <td className="px-3 py-4 text-sm text-[#111827]">{z.humidity}</td>
                         <td className="px-3 py-4 text-sm text-[#111827]">{z.temperature}</td>
@@ -244,7 +245,7 @@ export function ZonesPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-[#6B7280]">{z.name}</p>
-                        <p className="mt-1 text-sm text-[#111827]">{z.crop} · {z.soil_type}</p>
+                        <p className="mt-1 text-sm text-[#111827]">{z.location} · {z.soil_type}</p>
                       </div>
                       <div className="inline-flex gap-2">
                         <button
@@ -281,11 +282,42 @@ export function ZonesPage() {
                 <form onSubmit={handleSubmit} className="mt-4 space-y-3">
                   <div className="grid gap-3 md:grid-cols-2">
                     <input name="name" defaultValue={editingZone?.name ?? ''} placeholder="Nombre de la zona" className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2" />
-                    <input name="crop" defaultValue={editingZone?.crop ?? ''} placeholder="Cultivo principal" className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2" />
-                    <input name="soil_type" defaultValue={editingZone?.soil_type ?? ''} placeholder="Tipo de suelo" className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2" />
-                    <input name="humidity" defaultValue={editingZone?.humidity ?? ''} placeholder="Humedad (Alta/Media/Baja)" className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2" />
-                    <input name="temperature" defaultValue={editingZone?.temperature ?? ''} placeholder="Temperatura (ej: 24°C)" className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2" />
-                    <input name="location" defaultValue={editingZone?.user_id ?? ''} placeholder="Ubicación / coordenadas" className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2" />
+                    <input name="location" defaultValue={editingZone?.location ?? ''} placeholder="Ubicación" className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2" />
+                    <select name="soil_type" defaultValue={editingZone?.soil_type ?? ''} className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2">
+                      <option value="" disabled>Seleccione tipo de suelo</option>
+                      <option value="Franco">Franco</option>
+                      <option value="Arcilloso">Arcilloso</option>
+                      <option value="Franco Arcilloso">Franco Arcilloso</option>
+                      <option value="Arenoso">Arenoso</option>
+                      <option value="Volcánico">Volcánico</option>
+                      <option value="Limoso">Limoso</option>
+                    </select>
+                    <select name="humidity" defaultValue={editingZone?.humidity ?? ''} className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2">
+                      <option value="" disabled>Seleccione humedad</option>
+                      <option value="Muy baja">Muy baja</option>
+                      <option value="Baja">Baja</option>
+                      <option value="Media">Media</option>
+                      <option value="Alta">Alta</option>
+                      <option value="Muy alta">Muy alta</option>
+                    </select>
+                    <select name="temperature" defaultValue={editingZone?.temperature ?? ''} className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2">
+                      <option value="" disabled>Seleccione temperatura</option>
+                      <option value="Menos de 10°C">Menos de 10°C</option>
+                      <option value="10°C - 15°C">10°C - 15°C</option>
+                      <option value="15°C - 20°C">15°C - 20°C</option>
+                      <option value="20°C - 25°C">20°C - 25°C</option>
+                      <option value="25°C - 30°C">25°C - 30°C</option>
+                      <option value="Más de 30°C">Más de 30°C</option>
+                    </select>
+                    <select name="water_quality" defaultValue={editingZone?.water_quality ?? ''} className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2">
+                      <option value="" disabled>Seleccione calidad del agua</option>
+                      <option value="Potable">Potable</option>
+                      <option value="Regular">Regular</option>
+                      <option value="Salina">Salina</option>
+                      <option value="Buena">Buena</option>
+                      <option value="Contaminada">Contaminada</option>
+                      <option value="Desconocida">Desconocida</option>
+                    </select>
                   </div>
 
                   <div className="flex justify-end gap-3 pt-2">

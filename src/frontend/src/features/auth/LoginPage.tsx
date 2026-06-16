@@ -5,7 +5,7 @@ import { z } from 'zod'
 import axios from 'axios'
 import { useNavigate, Link } from 'react-router-dom'
 import * as Toast from '@radix-ui/react-toast'
-import { Lock, ShieldCheck, UserRound } from 'lucide-react'
+import { Lock, UserRound } from 'lucide-react'
 
 import { useAuthStore } from '@/stores/authStore'
 import { AuthLayout } from './AuthLayout'
@@ -50,13 +50,24 @@ export function LoginPage() {
 
   const onSubmit = async (values: LoginFormValues) => {
     try {
-      const normalizedIdentification = values.identification.replace(/\s+/g, '')
-      const response = await axios.post('/api/v1/auth/login', {
-        identification: normalizedIdentification,
-        password: values.password,
-      })
+      // Mock para desarrollo sin backend
+      // Simula una respuesta exitosa del backend
+      // const normalizedIdentification = values.identification.replace(/\s+/g, '')
+      // const response = await axios.post('/api/v1/auth/login', {
+      //   identification: normalizedIdentification,
+      //   password: values.password,
+      // })
+      // const { access_token, user } = response.data
 
-      const { access_token, user } = response.data
+      // --- Mock: descomentar lo de arriba cuando haya backend ---
+      const access_token = 'mock-token-12345'
+      const user = {
+        id: '1',
+        identification: '1234567890',
+        full_name: 'Usuario de Prueba',
+        email: 'usuario@prueba.com',
+      }
+
       login(access_token, user)
       setToastTitle('Inicio de sesión exitoso')
       setToastDescription('Redirigiendo a tu zona protegida...')
@@ -80,13 +91,14 @@ export function LoginPage() {
         title="Iniciar sesión"
         subtitle="Ingrese sus credenciales para acceder a su cuenta"
       >
-        <form className="space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form className="mt-6 space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
+          {/* Número de Identificación */}
           <div className="space-y-2">
             <label htmlFor="identification" className="text-sm font-medium text-[#111827]">
               Número de Identificación
             </label>
             <div className="relative">
-              <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#6B7280]">
+              <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#16A34A]">
                 <UserRound className="h-4 w-4" />
               </span>
               <input
@@ -95,7 +107,7 @@ export function LoginPage() {
                 inputMode="numeric"
                 autoComplete="username"
                 placeholder="0 0000 0000"
-                className="w-full rounded-xl border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                className="w-full rounded-lg border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] placeholder-[#6B7280] shadow-sm transition focus:border-[#16A34A] focus:outline-none focus:ring-2 focus:ring-[#16A34A]/20"
                 {...register('identification', {
                   onChange: (event) => {
                     const formatted = formatIdentification(event.target.value)
@@ -110,55 +122,53 @@ export function LoginPage() {
             )}
           </div>
 
+          {/* Contraseña */}
           <div className="space-y-2">
             <label htmlFor="password" className="text-sm font-medium text-[#111827]">
               Contraseña
             </label>
             <div className="relative">
-              <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#6B7280]">
+              <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#16A34A]">
                 <Lock className="h-4 w-4" />
               </span>
               <input
                 id="password"
                 type="password"
                 autoComplete="current-password"
-                placeholder="••••••••"
-                className="w-full rounded-xl border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                placeholder="********"
+                className="w-full rounded-lg border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] placeholder-[#6B7280] shadow-sm transition focus:border-[#16A34A] focus:outline-none focus:ring-2 focus:ring-[#16A34A]/20"
                 {...register('password')}
               />
             </div>
             {errors.password && <p className="text-sm text-[#DC2626]">{errors.password.message}</p>}
           </div>
 
-          <div className="flex items-center justify-between gap-3 text-sm">
+          {/* Botón Iniciar sesión */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full rounded-lg bg-[#16A34A] px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#15803D] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSubmitting ? 'Iniciando sesión...' : 'Iniciar sesión'}
+          </button>
+
+          {/* Enlace ¿Olvidaste tu contraseña? */}
+          <div className="text-center">
             <button
               type="button"
-              className="text-[#6B7280] transition hover:text-primary-700"
+              className="text-sm text-[#6B7280] transition hover:text-[#16A34A]"
             >
               ¿Olvidaste tu contraseña?
             </button>
-            <div className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700 ring-1 ring-primary-100">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Sesión segura
-            </div>
           </div>
 
-          <div className="space-y-3 pt-1">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full rounded-xl bg-[#16A34A] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#14532D] disabled:cursor-not-allowed disabled:bg-primary-300"
-            >
-              {isSubmitting ? 'Iniciando sesión...' : 'Iniciar sesión'}
-            </button>
-
-            <Link
-              to="/register"
-              className="block w-full rounded-xl border border-[#16A34A] bg-transparent px-4 py-3 text-center text-sm font-semibold text-[#16A34A] transition hover:bg-primary-50"
-            >
-              Crear cuenta
-            </Link>
-          </div>
+          {/* Botón Crear cuenta */}
+          <Link
+            to="/register"
+            className="block w-full rounded-lg border border-[#16A34A] bg-transparent px-4 py-3 text-center text-sm font-bold text-[#16A34A] transition hover:bg-[#16A34A]/5"
+          >
+            Crear cuenta
+          </Link>
         </form>
 
         <Toast.Root
