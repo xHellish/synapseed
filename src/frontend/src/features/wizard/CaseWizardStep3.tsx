@@ -193,10 +193,15 @@ export function CaseWizardStep3() {
   } = useQuery<RecommendationData>({
     queryKey: ['recommendation', id],
     queryFn: async () => {
-      if (isDemo) return DEMO_RECOMMENDATION
+      console.log('[CaseWizardStep3] useQuery: Fetching recommendation details from API. ID:', id, 'isDemo:', isDemo)
+      if (isDemo) {
+        console.log('[CaseWizardStep3] Returning DEMO_RECOMMENDATION')
+        return DEMO_RECOMMENDATION
+      }
       const res = await axios.get(`/api/v1/recommendations/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
+      console.log('[CaseWizardStep3] API raw response data:', res.data)
       return res.data
     },
     enabled: !!token && !isDemo,
@@ -211,6 +216,12 @@ export function CaseWizardStep3() {
 
   useEffect(() => {
     if (recommendation) {
+      console.log('[CaseWizardStep3] Syncing local pipelineState from query cache:', {
+        status: recommendation.status,
+        current_step: recommendation.current_step,
+        error_message: recommendation.error_message,
+        productsCount: recommendation.products?.length ?? 0
+      })
       setPipelineState({
         status: recommendation.status,
         current_step: recommendation.current_step,
@@ -219,51 +230,85 @@ export function CaseWizardStep3() {
     }
   }, [recommendation])
 
-  // Suscribirse a SSE si el estado de procesamiento está activo (pending/processing)
+  // Polling activo cada 1 segundo (1000 ms) mientras la recomendación se esté procesando.
+  // Lee 'current_step' y 'status' para avanzar la barra de progreso en tiempo real.
   useEffect(() => {
-    if (isDemo || !recommendation?.ticket_id) return
-    if (pipelineState?.status !== 'pending' && pipelineState?.status !== 'processing') return
+    if (isDemo || !id || !token) {
+      console.log('[CaseWizardStep3] Polling bypassed. Reason:', { isDemo, hasId: !!id, hasToken: !!token })
+      return
+    }
+    if (!recommendation) {
+      console.log('[CaseWizardStep3] Polling waiting: recommendation data not loaded yet.')
+      return
+    }
+    if (recommendation.status !== 'pending' && recommendation.status !== 'processing') {
+      console.log('[CaseWizardStep3] Polling skipped: status is already final:', recommendation.status)
+      return
+    }
 
-    const isLocalDev = window.location.port === '5173'
-    const baseUrl = isLocalDev ? `http://${window.location.hostname}:8000` : ''
-    const url = `${baseUrl}/api/v1/recommendations/stream/${recommendation.ticket_id}`
-    const eventSource = new EventSource(url)
-
-    eventSource.onmessage = (event) => {
+    console.log('[CaseWizardStep3] Setting up active polling interval (1s) to track pipeline steps.')
+    const poll = async () => {
       try {
-        const data = JSON.parse(event.data)
-        setPipelineState({
+        console.log(`[CaseWizardStep3] Polling: GET /api/v1/recommendations/${id}...`)
+        const res = await axios.get(`/api/v1/recommendations/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const data = res.data
+        console.log('[CaseWizardStep3] Poll result:', {
           status: data.status,
           current_step: data.current_step,
-          error_message: data.error_message,
+          productsCount: data.products?.length ?? 0
         })
         
-        // Si finalizó con éxito, invalidamos las queries para refrescar y mostrar los productos
-        if (data.status === 'completed') {
-          queryClient.invalidateQueries({ queryKey: ['recommendation', id] })
+        // Si hay un cambio en el estado, en el agente actual (current_step) o en la cantidad de productos,
+        // actualizamos la query cache directamente para evitar loops de refetch/cancelación por la alta frecuencia.
+        const hasStatusChanged = data.status !== recommendation.status
+        const hasStepChanged = data.current_step !== recommendation.current_step
+        const hasProductsChanged = (data.products?.length ?? 0) !== (recommendation.products?.length ?? 0)
+
+        if (hasStatusChanged || hasStepChanged || hasProductsChanged) {
+          console.log('[CaseWizardStep3] Transition detected! Updating React Query cache directly:', {
+            oldStatus: recommendation.status,
+            newStatus: data.status,
+            oldStep: recommendation.current_step,
+            newStep: data.current_step,
+            oldProductsCount: recommendation.products?.length ?? 0,
+            newProductsCount: data.products?.length ?? 0
+          })
+          queryClient.setQueryData(['recommendation', id], data)
         }
       } catch (err) {
-        console.error('Error parseando evento de progreso SSE:', err)
+        console.warn('[CaseWizardStep3] Error in background status polling:', err)
       }
     }
 
-    eventSource.onerror = (err) => {
-      console.error('Error de conexión con SSE stream:', err)
-      eventSource.close()
-    }
-
+    const interval = setInterval(poll, 1000)
     return () => {
-      eventSource.close()
+      console.log('[CaseWizardStep3] Cleaning up active polling interval.')
+      clearInterval(interval)
     }
-  }, [recommendation?.ticket_id, pipelineState?.status, isDemo, id, queryClient])
+  }, [id, token, isDemo, recommendation, queryClient])
+
+  // Log simple para cada render en la consola
+  console.log('[CaseWizardStep3] Rendering state:', {
+    isLoading,
+    isError,
+    recStatus: recommendation?.status,
+    recStep: recommendation?.current_step,
+    localStatus: pipelineState?.status,
+    localStep: pipelineState?.current_step,
+    productsCount: recommendation?.products?.length ?? 0
+  })
 
   const handleGoToProviders = () => {
+    console.log('[CaseWizardStep3] Navigating to providers. Rec ID:', id)
     setStep(4)
     navigate(`/recommendations/${id}/providers`)
   }
 
   /* — Estado de carga inicial (GET request) */
   if (isLoading) {
+    console.log('[CaseWizardStep3] Rendering Loader screen...')
     return (
       <AppLayout>
         <section className="mx-auto max-w-5xl px-4 py-8">
@@ -281,6 +326,7 @@ export function CaseWizardStep3() {
 
   /* — Estado de error general */
   if (isError && !isDemo) {
+    console.log('[CaseWizardStep3] Rendering Error screen...')
     return (
       <AppLayout>
         <section className="mx-auto max-w-5xl px-4 py-8">
@@ -308,6 +354,13 @@ export function CaseWizardStep3() {
     const progressInfo = getProgressInfo(pipelineState.status, pipelineState.current_step)
     const stepsOrder = ['context_analyzer', 'researcher', 'legal_validator', 'synthesizer']
     const currentStepIdx = pipelineState.current_step ? stepsOrder.indexOf(pipelineState.current_step) : -1
+
+    console.log('[CaseWizardStep3] Rendering Progress screen. Info:', {
+      percentage: progressInfo.percentage,
+      message: progressInfo.message,
+      step: pipelineState.current_step,
+      idx: currentStepIdx
+    })
 
     const stepsList = [
       { key: 'context_analyzer', name: 'Analizador de Contexto', desc: 'Estructurando datos agronómicos y ambientales', icon: Sparkles },
@@ -408,6 +461,7 @@ export function CaseWizardStep3() {
 
   /* — Pantalla de falla del pipeline */
   if (pipelineState?.status === 'failed') {
+    console.log('[CaseWizardStep3] Rendering Pipeline Failure screen. Error message:', pipelineState.error_message)
     return (
       <AppLayout>
         <section className="mx-auto max-w-xl px-4 py-8">
@@ -435,6 +489,7 @@ export function CaseWizardStep3() {
               </button>
               <button
                 onClick={() => {
+                  console.log('[CaseWizardStep3] Retry clicked. Invalidating recommendation query.')
                   queryClient.invalidateQueries({ queryKey: ['recommendation', id] })
                   setPipelineState({ status: 'pending', current_step: null, error_message: null })
                 }}
@@ -450,7 +505,9 @@ export function CaseWizardStep3() {
   }
 
   /* — Pantalla de éxito (Visualización de recomendaciones de productos) */
-  const products = recommendation?.products ?? []
+  // Ordenar los productos de acuerdo al ranking (rank 1 primero, luego 2, luego 3)
+  const products = [...(recommendation?.products ?? [])].sort((a, b) => a.rank - b.rank)
+  console.log('[CaseWizardStep3] Success: Sorting and displaying recommendation products. Products array:', products)
   
   // Re-mapear colores para tarjetas de rango
   const variantStyles = (rank: number) => {
@@ -502,57 +559,73 @@ export function CaseWizardStep3() {
         </div>
 
         {/* ====== Tarjetas de productos ====== */}
-        <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {products.map((product) => {
-            const style = variantStyles(product.rank)
-            return (
-              <div
-                key={product.product_id}
-                className={cn(
-                  "flex flex-col rounded-3xl border bg-white p-6 shadow-md transition-all duration-300 hover:shadow-lg",
-                  style.border
-                )}
-              >
-                <div className="mb-4">
-                  <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider', style.badge)}>
-                    {style.label}
-                  </span>
-                </div>
-                
-                <h3 className="text-xl font-bold text-[#111827] line-clamp-2 min-h-[3.5rem]">{product.nombre_comercial}</h3>
-                
-                <div className="mt-3 mb-4 flex flex-wrap gap-2">
-                  {getToxicBandBadge(product.toxicidad)}
-                </div>
-
-                <div className="flex-1 border-t border-[#F3F4F6] pt-4">
-                  <p className="text-sm italic text-[#4B5563] line-clamp-5 leading-relaxed">
-                    "{product.justification}"
-                  </p>
-                </div>
-
-                <div className="mt-6 space-y-2.5 border-t border-[#F3F4F6] pt-4 text-xs text-[#6B7280]">
-                  <div className="flex justify-between">
-                    <span>Dosis:</span>
-                    <span className="font-semibold text-[#374151]">{product.dosis || 'No disponible'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Precio Est.:</span>
-                    <span className="font-semibold text-[#374151]">
-                      {product.precio_estimado ? `${product.precio_estimado} ₡` : 'No disponible'}
+        {products.length === 0 ? (
+          <div className="mb-8 rounded-3xl border border-yellow-200 bg-yellow-50/50 p-8 text-center shadow-md">
+            <AlertTriangle className="mx-auto h-12 w-12 text-yellow-600" />
+            <h2 className="mt-3 text-lg font-bold text-yellow-800">No se encontraron productos recomendados</h2>
+            <p className="mt-2 text-sm text-yellow-700 max-w-xl mx-auto leading-relaxed">
+              El motor de agentes IA completó el análisis normativo del SFE y restricciones del MAG, pero no se encontraron productos registrados en el catálogo compatibles y seguros para el cultivo de <strong>{recommendation?.crop}</strong> ante el problema de <strong>{recommendation?.problem}</strong>.
+            </p>
+            <div className="mt-4 text-left max-w-md mx-auto text-xs text-yellow-700/80 space-y-1 bg-yellow-50 border border-yellow-200/50 p-4 rounded-xl">
+              <p className="font-semibold mb-1">Recomendaciones sugeridas:</p>
+              <p>• Verifique que el cultivo y problema correspondan a términos válidos (ej. Tomate, Papa, Brocoli).</p>
+              <p>• El problema detectado podría requerir un principio activo no registrado en el país o prohibido por la legislación del SFE.</p>
+              <p>• Consulte directamente con un asesor técnico o agrónomo certificado para este tipo de hortaliza.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {products.map((product) => {
+              const style = variantStyles(product.rank)
+              return (
+                <div
+                  key={product.product_id}
+                  className={cn(
+                    "flex flex-col rounded-3xl border bg-white p-6 shadow-md transition-all duration-300 hover:shadow-lg",
+                    style.border
+                  )}
+                >
+                  <div className="mb-4">
+                    <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider', style.badge)}>
+                      {style.label}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Plazo de espera:</span>
-                    <span className="font-semibold text-[#374151]">
-                      {product.intervalo_seguridad !== null ? `${product.intervalo_seguridad} días` : 'No aplica'}
-                    </span>
+                  
+                  <h3 className="text-xl font-bold text-[#111827] line-clamp-2 min-h-[3.5rem]">{product.nombre_comercial}</h3>
+                  
+                  <div className="mt-3 mb-4 flex flex-wrap gap-2">
+                    {getToxicBandBadge(product.toxicidad)}
+                  </div>
+
+                  <div className="flex-1 border-t border-[#F3F4F6] pt-4">
+                    <p className="text-sm italic text-[#4B5563] line-clamp-5 leading-relaxed">
+                      "{product.justification}"
+                    </p>
+                  </div>
+
+                  <div className="mt-6 space-y-2.5 border-t border-[#F3F4F6] pt-4 text-xs text-[#6B7280]">
+                    <div className="flex justify-between">
+                      <span>Dosis:</span>
+                      <span className="font-semibold text-[#374151]">{product.dosis || 'No disponible'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Precio Est.:</span>
+                      <span className="font-semibold text-[#374151]">
+                        {product.precio_estimado ? `${product.precio_estimado} ₡` : 'No disponible'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Plazo de espera:</span>
+                      <span className="font-semibold text-[#374151]">
+                        {product.intervalo_seguridad !== null ? `${product.intervalo_seguridad} días` : 'No aplica'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        )}
 
         {/* ====== Tabla comparativa ====== */}
         {products.length > 0 && (
