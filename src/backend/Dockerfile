@@ -32,7 +32,8 @@ COPY alembic ./alembic
 COPY app ./app
 
 RUN pip install --upgrade pip && \
-    pip install -e ".[dev]" && \
+    pip install --no-cache-dir --prefer-binary coverage>=7.5 && \
+    pip install --no-cache-dir --prefer-binary -e ".[dev]" && \
     rm -rf /root/.cache/pip
 
 EXPOSE 8000

@@ -10,6 +10,7 @@ from app.models import (
     RecommendationProduct,
     Regulation,
     AuditLog,
+    Lmr,
 )
 
 # Importar Base desde models.base para que todos los modelos se registren
@@ -26,4 +27,5 @@ __all__ = [
     "RecommendationProduct",
     "Regulation",
     "AuditLog",
+    "Lmr",
 ]

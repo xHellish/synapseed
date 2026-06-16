@@ -131,9 +131,14 @@ export function CaseWizardStep1() {
                   <label className="text-sm text-[#111827]">Cultivo</label>
                   <select {...register('crop')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
                     <option value="">Seleccione cultivo</option>
-                    {CROP_OPTIONS.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
+                    {crops.length > 0
+                      ? crops.map((c: any) => (
+                          <option key={c.id || c.name} value={c.name}>{c.name}</option>
+                        ))
+                      : CROP_OPTIONS.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))
+                    }
                   </select>
                 </div>
 
@@ -141,9 +146,14 @@ export function CaseWizardStep1() {
                   <label className="text-sm text-[#111827]">Etapa del cultivo</label>
                   <select {...register('crop_stage')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
                     <option value="">Seleccione etapa</option>
-                    {STAGE_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
+                    {stages.length > 0
+                      ? stages.map((s: any) => (
+                          <option key={s.id || s.name} value={s.name}>{s.name}</option>
+                        ))
+                      : STAGE_OPTIONS.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))
+                    }
                   </select>
                 </div>
 

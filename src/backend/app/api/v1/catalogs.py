@@ -54,7 +54,12 @@ _BUDGETS = [
 
 
 @router.get("/crops", summary="Lista de cultivos")
-async def list_crops() -> list[dict]:
+async def list_crops(db: AsyncSession = Depends(get_db)) -> list[dict]:
+    from app.repositories.lmr_repository import LmrRepository
+    lmr_repo = LmrRepository(db)
+    db_crops = await lmr_repo.get_unique_crops()
+    if db_crops:
+        return db_crops
     return _CROPS
 
 

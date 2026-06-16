@@ -311,29 +311,25 @@ class SqlAlchemyProductRepository(AbstractProductRepository):
 
         cultivo = context.cultivo
         problema = context.problema_detectado
-        stmt = stmt.where(
-            or_(
-                Product.cultivo_objetivo.ilike(f"%{cultivo}%"),
-                Product.problema_objetivo.ilike(f"%{problema}%"),
-                Product.nombre_comercial.ilike(f"%{cultivo}%"),
-                Product.ingrediente_activo.ilike(f"%{problema[:30]}%"),
-            )
+        text_conditions = or_(
+            Product.cultivo_objetivo.ilike(f"%{cultivo}%"),
+            Product.problema_objetivo.ilike(f"%{problema}%"),
+            Product.nombre_comercial.ilike(f"%{cultivo}%"),
+            Product.ingrediente_activo.ilike(f"%{problema[:30]}%"),
         )
-        stmt = stmt.limit(limit * 3)
 
-        result = await self._session.execute(stmt)
+        # Try hybrid search (category + text filters) first
+        stmt_hibrido = stmt.where(text_conditions).limit(limit * 3)
+        result = await self._session.execute(stmt_hibrido)
         products = result.scalars().all()
+        method = "hibrido"
 
         if not products:
-            stmt_fallback = select(Product).where(Product.estado == ProductStatus.ACTIVO)
-            if categoria_filter:
-                stmt_fallback = stmt_fallback.where(Product.categoria == categoria_filter)
-            stmt_fallback = stmt_fallback.limit(limit * 2)
+            # Fallback: category-only search
+            stmt_fallback = stmt.limit(limit * 2)
             result = await self._session.execute(stmt_fallback)
             products = result.scalars().all()
             method = "filtros"
-        else:
-            method = "hibrido"
 
         scored: list[tuple[float, ProductRecord]] = []
         for product in products:

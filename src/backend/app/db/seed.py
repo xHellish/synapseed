@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from sqlalchemy import select
+from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -22,6 +22,7 @@ from app.models import (
     ProductStatus,
     Regulation,
     RegulationType,
+    Lmr,
 )
 
 
@@ -36,6 +37,7 @@ EMBEDDING_DIM = settings.embedding_dim
 BATCH_SIZE = 100
 
 # Inicializar embeddings de Google Gemini (gratuito)
+# Inicializar embeddings de Google Gemini (gratuito)
 embedding_client: GoogleGenerativeAIEmbeddings | None = None
 if settings.gemini_api_key and settings.gemini_api_key != "your-gemini-api-key-here":
     print("Verificando la API Key de Gemini...")
@@ -47,10 +49,10 @@ if settings.gemini_api_key and settings.gemini_api_key != "your-gemini-api-key-h
         # Probar con un texto corto
         test_client.embed_query("test")
         embedding_client = test_client
-        print("✅ API Key de Gemini validada y lista para generar embeddings.")
+        print("[SUCCESS] API Key de Gemini validada y lista para generar embeddings.")
     except Exception as e:
-        print(f"⚠️  No se pudo validar la API Key de Gemini: {e}")
-        print("⚠️  Se saltará la generación de embeddings para acelerar el proceso de seed.")
+        print("[WARN] No se pudo validar la API Key de Gemini o el modelo no esta disponible.")
+        print("[WARN] Se saltara la generacion de embeddings para acelerar el proceso de seed.")
         embedding_client = None
 
 
@@ -78,7 +80,7 @@ def get_embedding(text: str) -> list[float] | None:
 
 async def seed_products(session: AsyncSession, csv_path: Path) -> int:
     """Carga productos desde plaguicidas.csv y fertilizantes.csv de manera eficiente."""
-    print(f"\n📦 Cargando productos desde {csv_path}...", flush=True)
+    print(f"\n[INFO] Cargando productos desde {csv_path}...", flush=True)
     
     # Obtener todos los registros existentes para evitar duplicados en memoria
     result = await session.execute(select(Product.numero_registro))
@@ -142,13 +144,13 @@ async def seed_products(session: AsyncSession, csv_path: Path) -> int:
             porcentaje = ((i + len(batch)) / len(new_products)) * 100
             print(f"  Procesados/Insertados: {i + len(batch)} / {len(new_products)} ({porcentaje:.1f}%)", flush=True)
             
-    print(f"  ✅ Total productos cargados: {count}", flush=True)
+    print(f"  [SUCCESS] Total productos cargados: {count}", flush=True)
     return count
 
 
 async def seed_distributors(session: AsyncSession) -> int:
     """Crea distribuidores de ejemplo basados en los registrantes del SFE."""
-    print("\n🏢 Creando distribuidores...")
+    print("\n[INFO] Creando distribuidores...")
     
     # Obtener registrantes únicos de productos
     result = await session.execute(
@@ -211,13 +213,13 @@ async def seed_distributors(session: AsyncSession) -> int:
                 count += 1
     
     await session.flush()
-    print(f"  ✅ Total distribuidores creados: {count}")
+    print(f"  [SUCCESS] Total distribuidores creados: {count}")
     return count
 
 
 async def link_products_distributors(session: AsyncSession) -> int:
     """Vincula productos con distribuidores basándose en el campo registrante."""
-    print("\n🔗 Vinculando productos con distribuidores...")
+    print("\n[INFO] Vinculando productos con distribuidores...")
     
     # Obtener todos los productos con registrante
     result = await session.execute(
@@ -249,13 +251,13 @@ async def link_products_distributors(session: AsyncSession) -> int:
                 count += 1
     
     await session.flush()
-    print(f"  ✅ Total vínculos creados: {count}")
+    print(f"  [SUCCESS] Total vinculos creados: {count}")
     return count
 
 
 async def seed_regulations(session: AsyncSession) -> int:
     """Crea regulaciones base del MAG/SFE."""
-    print("\n📋 Cargando regulaciones...")
+    print("\n[INFO] Cargando regulaciones...")
     
     regulations_data = [
         {
@@ -326,13 +328,72 @@ async def seed_regulations(session: AsyncSession) -> int:
             count += 1
     
     await session.flush()
-    print(f"  ✅ Total regulaciones creadas: {count}")
+    print(f"  [SUCCESS] Total regulaciones creadas: {count}")
+    return count
+
+
+async def seed_lmrs(session: AsyncSession, csv_path: Path) -> int:
+    """Carga los límites máximos de residuos (LMR) desde lmr.csv."""
+    print(f"\n[INFO] Cargando LMRs desde {csv_path}...", flush=True)
+
+    # Borrar cualquier registro anterior para re-seeding limpio
+    print("  [INFO] Limpiando registros anteriores de LMR...")
+    await session.execute(delete(Lmr))
+    await session.flush()
+
+    new_lmrs = []
+    count = 0
+    # Abrir con utf-8-sig para leer correctamente los caracteres UTF-8
+    with open(csv_path, "r", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        if reader.fieldnames:
+            reader.fieldnames = [name.replace('\ufeff', '').replace('ï»¿', '').strip() for name in reader.fieldnames]
+        for row in reader:
+            plaguicida = row.get("plaguicida", "")
+            if plaguicida is not None:
+                plaguicida = plaguicida.strip()
+            else:
+                plaguicida = ""
+                
+            cultivo = row.get("cultivo", "")
+            if cultivo is not None:
+                cultivo = cultivo.strip()
+            else:
+                cultivo = ""
+                
+            if not plaguicida or not cultivo:
+                continue
+
+            lmr_nac = row.get("lmr_-_nac", "").strip()
+            clase = row.get("clase", "").strip()
+
+            lmr_record = Lmr(
+                plaguicida=plaguicida,
+                clase=clase,
+                cultivo=cultivo,
+                lmr_nac=lmr_nac,
+            )
+            new_lmrs.append(lmr_record)
+            count += 1
+
+    # Insertar en lotes (batch insert)
+    if new_lmrs:
+        print(f"  Insertando {len(new_lmrs)} registros de LMR en base de datos...", flush=True)
+        BATCH_INSERT_SIZE = 1000
+        for i in range(0, len(new_lmrs), BATCH_INSERT_SIZE):
+            batch = new_lmrs[i:i + BATCH_INSERT_SIZE]
+            session.add_all(batch)
+            await session.flush()
+            porcentaje = ((i + len(batch)) / len(new_lmrs)) * 100
+            print(f"  Procesados/Insertados LMRs: {i + len(batch)} / {len(new_lmrs)} ({porcentaje:.1f}%)", flush=True)
+
+    print(f"  [SUCCESS] Total LMRs cargados: {count}", flush=True)
     return count
 
 
 async def generate_embeddings(session: AsyncSession) -> None:
     """Genera embeddings vectoriales para productos y regulaciones."""
-    print("\n🧠 Generando embeddings vectoriales...")
+    print("\n[INFO] Generando embeddings vectoriales...")
     
     # Embeddings para productos
     result = await session.execute(
@@ -352,7 +413,7 @@ async def generate_embeddings(session: AsyncSession) -> None:
             print(f"  Procesados: {i}/{len(products)}")
     
     await session.flush()
-    print(f"  ✅ Embeddings de productos generados")
+    print(f"  [SUCCESS] Embeddings de productos generados")
     
     # Embeddings para regulaciones
     result = await session.execute(
@@ -372,7 +433,7 @@ async def generate_embeddings(session: AsyncSession) -> None:
             print(f"  Procesados: {i}/{len(regulations)}")
     
     await session.flush()
-    print(f"  ✅ Embeddings de regulaciones generados")
+    print(f"  [SUCCESS] Embeddings de regulaciones generados")
 
 
 async def main():
@@ -384,7 +445,7 @@ async def main():
     
     # Verificar API key
     if not settings.gemini_api_key or settings.gemini_api_key == "your-gemini-api-key-here":
-        print("⚠️  GEMINI_API_KEY no configurada. Los embeddings no se generarán.")
+        print("[WARN] GEMINI_API_KEY no configurada. Los embeddings no se generarán.")
     
     async with get_db_session() as session:
         # 1. Cargar productos (plaguicidas)
@@ -392,14 +453,14 @@ async def main():
         if plaguicidas_path.exists():
             await seed_products(session, plaguicidas_path)
         else:
-            print(f"  ⚠️  No se encontró {plaguicidas_path}")
+            print(f"  [WARN] No se encontró {plaguicidas_path}")
         
         # 2. Cargar productos (fertilizantes)
         fertilizantes_path = OUTPUT_DIR / "fertilizantes.csv"
         if fertilizantes_path.exists():
             await seed_products(session, fertilizantes_path)
         else:
-            print(f"  ⚠️  No se encontró {fertilizantes_path}")
+            print(f"  [WARN] No se encontró {fertilizantes_path}")
         
         # 3. Crear distribuidores
         await seed_distributors(session)
@@ -409,18 +470,25 @@ async def main():
         
         # 5. Cargar regulaciones
         await seed_regulations(session)
+
+        # 5.5 Cargar LMRs
+        lmr_path = OUTPUT_DIR / "lmr.csv"
+        if lmr_path.exists():
+            await seed_lmrs(session, lmr_path)
+        else:
+            print(f"  [WARN] No se encontró {lmr_path}")
         
         # 6. Generar embeddings (si hay API key)
         if settings.gemini_api_key and settings.gemini_api_key != "your-gemini-api-key-here":
             await generate_embeddings(session)
         else:
-            print("\n⚠️  Saltando generación de embeddings (no hay GEMINI_API_KEY)")
+            print("\n[WARN] Saltando generación de embeddings (no hay GEMINI_API_KEY)")
         
         # Commit all changes
         await session.commit()
         
         print("\n" + "=" * 60)
-        print(" ✅ Seed completado exitosamente")
+        print(" [SUCCESS] Seed completado exitosamente")
         print("=" * 60)
 
 

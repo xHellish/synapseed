@@ -542,6 +542,12 @@ export function CaseWizardStep3() {
       product2: products.find(p => p.rank === 2)?.intervalo_seguridad !== null ? `${products.find(p => p.rank === 2)?.intervalo_seguridad} días` : 'No aplica / No dip.',
       product3: products.find(p => p.rank === 3)?.intervalo_seguridad !== null ? `${products.find(p => p.rank === 3)?.intervalo_seguridad} días` : 'No aplica / No dip.',
     },
+    {
+      criteria: 'LMR Nacional (Norma SFE)',
+      product1: products.find(p => p.rank === 1)?.lmr ?? 'No disponible',
+      product2: products.find(p => p.rank === 2)?.lmr ?? 'No disponible',
+      product3: products.find(p => p.rank === 3)?.lmr ?? 'No disponible',
+    },
   ]
 
   return (
@@ -598,7 +604,7 @@ export function CaseWizardStep3() {
                   </div>
 
                   <div className="flex-1 border-t border-[#F3F4F6] pt-4">
-                    <p className="text-sm italic text-[#4B5563] line-clamp-5 leading-relaxed">
+                    <p className="text-sm italic text-[#4B5563] leading-relaxed">
                       "{product.justification}"
                     </p>
                   </div>

@@ -8,6 +8,7 @@ from app.models.distributor import Distributor, ProductDistributor
 from app.models.recommendation import Recommendation, RecommendationProduct, RecommendationStatus
 from app.models.regulation import Regulation, RegulationType
 from app.models.audit_log import AuditLog, AuditAction
+from app.models.lmr import Lmr
 
 __all__ = [
     "Base",
@@ -26,4 +27,5 @@ __all__ = [
     "RegulationType",
     "AuditLog",
     "AuditAction",
+    "Lmr",
 ]

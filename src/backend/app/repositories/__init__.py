@@ -16,6 +16,7 @@ from app.repositories.product_repository import ProductRepository
 from app.repositories.recommendation_repository import RecommendationRepository
 from app.repositories.user_repository import UserRepository
 from app.repositories.zone_repository import ZoneRepository
+from app.repositories.lmr_repository import LmrRepository
 
 __all__ = [
     "BaseRepository",
@@ -25,4 +26,5 @@ __all__ = [
     "RecommendationRepository",
     "DistributorRepository",
     "AuditRepository",
+    "LmrRepository",
 ]

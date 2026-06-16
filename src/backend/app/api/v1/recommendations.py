@@ -122,8 +122,18 @@ async def detail(
         entity_id=rec.id,
     )
 
-    products = [
-        {
+    from app.repositories.lmr_repository import LmrRepository
+    lmr_repo = LmrRepository(db)
+
+    products = []
+    for p in rec.products:
+        lmr_val = None
+        if p.product and p.product.ingrediente_activo and rec.crop:
+            lmr_val = await lmr_repo.get_lmr_by_active_ingredient_and_crop(
+                p.product.ingrediente_activo, rec.crop
+            )
+
+        products.append({
             "rank": p.rank,
             "product_id": p.product_id,
             "nombre_comercial": p.product.nombre_comercial if p.product else None,
@@ -132,9 +142,8 @@ async def detail(
             "precio_estimado": float(p.precio_estimado) if p.precio_estimado else None,
             "toxicidad": p.toxicidad,
             "intervalo_seguridad": p.intervalo_seguridad,
-        }
-        for p in rec.products
-    ]
+            "lmr": lmr_val,
+        })
 
     return {
         "id": rec.id,
