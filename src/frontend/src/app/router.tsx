@@ -7,7 +7,6 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { ProtectedRoute } from '@/app/ProtectedRoute'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { RegisterPage } from '@/features/auth/RegisterPage'
-import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { CaseWizardStep1 } from '@/features/wizard/CaseWizardStep1'
 import { CaseWizardConfirm } from '@/features/wizard/CaseWizardConfirm'
 import { CaseWizardStep3 } from '@/features/wizard/CaseWizardStep3'
@@ -25,7 +24,6 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
-      { path: '/dashboard', element: <DashboardPage /> },
       { path: '/cases/wizard/step-1', element: <CaseWizardStep1 /> },
       { path: '/cases/wizard/step-2', element: <CaseWizardConfirm /> },
       { path: '/recommendations/:id', element: <CaseWizardStep3 /> },
