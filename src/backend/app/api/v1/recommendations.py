@@ -38,7 +38,6 @@ async def request_recommendation(
             "crop": payload.crop,
             "crop_stage": payload.crop_stage,
             "problem": payload.problem_to_solve,
-            # Mapear problem_to_solve como problem_category también
             "problem_category": payload.problem_to_solve,
             "soil_type": payload.soil_type,
             "humidity": payload.humidity,
@@ -58,7 +57,6 @@ async def request_recommendation(
         entity_id=rec.id,
     )
 
-    # Encolar la tarea asíncrona en Celery
     from app.workers.tasks import generate_recommendation
     generate_recommendation.delay(ticket_id)
 
@@ -99,7 +97,10 @@ async def history(
     ]
 
 
-@router.get("/{recommendation_id}", summary="Detalle de una recomendación")
+@router.get(
+    "/{recommendation_id}",
+    summary="Detalle de una recomendación",
+)
 async def detail(
     recommendation_id: int,
     current_user: dict = Depends(get_current_user),
@@ -123,27 +124,44 @@ async def detail(
     )
 
     from app.repositories.lmr_repository import LmrRepository
+
     lmr_repo = LmrRepository(db)
 
-    products = []
+    products: list[dict] = []
     for p in rec.products:
+        product = p.product
         lmr_val = None
-        if p.product and p.product.ingrediente_activo and rec.crop:
+        if product and product.ingrediente_activo and rec.crop:
             lmr_val = await lmr_repo.get_lmr_by_active_ingredient_and_crop(
-                p.product.ingrediente_activo, rec.crop
+                product.ingrediente_activo,
+                rec.crop,
             )
 
-        products.append({
-            "rank": p.rank,
-            "product_id": p.product_id,
-            "nombre_comercial": p.product.nombre_comercial if p.product else None,
-            "justification": p.justification,
-            "dosis": p.dosis,
-            "precio_estimado": float(p.precio_estimado) if p.precio_estimado else None,
-            "toxicidad": p.toxicidad,
-            "intervalo_seguridad": p.intervalo_seguridad,
-            "lmr": lmr_val,
-        })
+        products.append(
+            {
+                "rank": p.rank,
+                "product_id": p.product_id,
+                "nombre_comercial": product.nombre_comercial if product else None,
+                "justification": p.justification,
+                "dosis": p.dosis,
+                "precio_estimado": (
+                    float(p.precio_estimado) if p.precio_estimado else None
+                ),
+                "toxicidad": p.toxicidad,
+                "intervalo_seguridad": p.intervalo_seguridad,
+                "lmr": lmr_val,
+                "categoria": (
+                    product.categoria.value if product and product.categoria else None
+                ),
+                "cultivo_objetivo": product.cultivo_objetivo if product else None,
+                "problema_objetivo": product.problema_objetivo if product else None,
+            }
+        )
+
+    try:
+        max_budget_per_liter = float(rec.budget_range) if rec.budget_range else None
+    except (TypeError, ValueError):
+        max_budget_per_liter = None
 
     return {
         "id": rec.id,
@@ -151,6 +169,8 @@ async def detail(
         "crop": rec.crop,
         "crop_stage": rec.crop_stage,
         "problem": rec.problem,
+        "budget_range": rec.budget_range,
+        "max_budget_per_liter": max_budget_per_liter,
         "status": rec.status.value,
         "current_step": rec.current_step,
         "error_message": rec.error_message,
@@ -165,24 +185,21 @@ async def providers(
     recommendation_id: int,
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> list:
-    from app.repositories import DistributorRepository
+) -> list[dict[str, object]]:
+    recommendation_repo = RecommendationRepository(db)
+    distributor_repo = DistributorRepository(db)
 
-    recommendations = RecommendationRepository(db)
-    distributors = DistributorRepository(db)
-
-    rec = await recommendations.get_with_products(recommendation_id)
+    rec = await recommendation_repo.get_with_products(recommendation_id)
     if not rec or rec.user_id != int(current_user["id"]):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Recomendación no encontrada",
         )
 
-    # Recolectar distribuidores únicos de todos los productos recomendados
     seen_ids: set[int] = set()
-    result = []
+    result: list[dict[str, object]] = []
     for rec_product in rec.products:
-        dist_list = await distributors.get_by_product(rec_product.product_id)
+        dist_list = await distributor_repo.get_by_product(rec_product.product_id)
         for d in dist_list:
             if d.id not in seen_ids:
                 seen_ids.add(d.id)
@@ -190,6 +207,12 @@ async def providers(
                     {
                         "id": d.id,
                         "nombre": d.nombre,
+                        "product_id": rec_product.product_id,
+                        "producto_asociado": (
+                            rec_product.product.nombre_comercial
+                            if rec_product.product
+                            else None
+                        ),
                         "correo": d.correo,
                         "telefono": d.telefono,
                         "ubicacion": d.ubicacion,
@@ -205,16 +228,14 @@ async def stream(
     ticket_id: str,
 ) -> StreamingResponse:
     from redis.asyncio import Redis
+
     from app.config import get_settings
-    import asyncio
-    import json
     from app.db.session import get_db_session
     from app.repositories import RecommendationRepository
 
     settings = get_settings()
 
-    async def event_stream():
-        # Primero, obtener el estado actual de la base de datos
+    async def event_stream() -> None:
         async with get_db_session() as db:
             recommendations = RecommendationRepository(db)
             rec = await recommendations.get_by_ticket_id(ticket_id)
@@ -222,13 +243,14 @@ async def stream(
                 yield f"event: status\ndata: {json.dumps({'ticket_id': ticket_id, 'status': 'not_found'})}\n\n"
                 return
 
-            # Emitir el estado actual al conectarse
-            yield f"event: status\ndata: {json.dumps({'ticket_id': ticket_id, 'status': rec.status.value, 'current_step': rec.current_step, 'error_message': rec.error_message})}\n\n"
+            yield (
+                "event: status\n"
+                f"data: {json.dumps({'ticket_id': ticket_id, 'status': rec.status.value, 'current_step': rec.current_step, 'error_message': rec.error_message})}\n\n"
+            )
 
             if rec.status.value in ("completed", "failed"):
                 return
 
-        # Si sigue pendiente o en proceso, nos suscribimos a Redis para actualizaciones en tiempo real
         redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
         pubsub = redis_client.pubsub()
         channel = f"recommendation_progress:{ticket_id}"
@@ -236,23 +258,21 @@ async def stream(
 
         try:
             while True:
-                # Escuchar mensajes de Redis pub/sub con un timeout corto para no colgarse
-                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                message = await pubsub.get_message(
+                    ignore_subscribe_messages=True,
+                    timeout=1.0,
+                )
                 if message:
-                    data = message["data"]
-                    yield f"event: status\ndata: {data}\n\n"
-                    # Si el estado es final, terminamos el stream
+                    yield f"event: status\ndata: {message['data']}\n\n"
                     try:
-                        parsed = json.loads(data)
+                        parsed = json.loads(message["data"])
                         if parsed.get("status") in ("completed", "failed"):
                             break
                     except Exception:
                         pass
 
-                # Mantener vivo el stream y evitar loops intensivos de CPU
                 await asyncio.sleep(0.5)
         except asyncio.CancelledError:
-            # El cliente se desconectó
             pass
         finally:
             await pubsub.unsubscribe(channel)

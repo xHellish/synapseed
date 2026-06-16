@@ -7,6 +7,8 @@ from uuid import UUID
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
+from app.core.security import create_access_token, get_password_hash, verify_password
 from app.core.supabase import (
     SupabaseAuthError,
     SupabaseSession,
@@ -27,6 +29,38 @@ class AuthError(Exception):
         self.message = message
         self.status_code = status_code
         super().__init__(message)
+
+
+def _is_unconfigured(value: str) -> bool:
+    """Detecta valores vacíos o placeholders del .env de ejemplo."""
+    normalized = value.strip().lower()
+    return not normalized or any(token in normalized for token in ("<", ">", "[", "]", "your-", "tu_"))
+
+
+def _local_auth_enabled() -> bool:
+    """Permite auth local solo para desarrollo cuando Supabase no está configurado."""
+    settings = get_settings()
+    return settings.is_development and (
+        _is_unconfigured(settings.supabase_url)
+        or _is_unconfigured(settings.supabase_anon_key)
+    )
+
+
+def _build_local_session(user: User) -> SupabaseSession:
+    settings = get_settings()
+    return SupabaseSession(
+        access_token=create_access_token(subject=str(user.id)),
+        refresh_token="",
+        expires_in=settings.jwt_expire_hours * 3600,
+        auth_user_id=user.auth_user_id if user.auth_user_id is not None else UUID(int=user.id),
+        email=user.email,
+    )
+
+
+def _verify_local_password(user: User, password: str) -> SupabaseSession | None:
+    if user.password_hash and verify_password(password, user.password_hash):
+        return _build_local_session(user)
+    return None
 
 
 async def _get_user_by_identification(db: AsyncSession, identification: str) -> User | None:
@@ -64,6 +98,21 @@ async def register_user(db: AsyncSession, data: UserRegister) -> User:
         if conflict.email == data.email:
             raise AuthError("El correo electrónico ya está registrado", status_code=409)
         raise AuthError("La cédula ya está registrada", status_code=409)
+
+    if _local_auth_enabled():
+        user = User(
+            auth_user_id=None,
+            email=data.email,
+            password_hash=get_password_hash(data.password),
+            full_name=data.full_name,
+            identification=data.identification,
+            phone=data.phone,
+            is_verified=True,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        return user
 
     try:
         result: SupabaseSignupResult = await sign_up(
@@ -107,6 +156,12 @@ async def authenticate_user(db: AsyncSession, data: UserLogin) -> tuple[User, Su
     if not user.is_active:
         raise AuthError("Cuenta desactivada", status_code=403)
 
+    if _local_auth_enabled():
+        local_session = _verify_local_password(user, data.password)
+        if local_session is not None:
+            return user, local_session
+        raise AuthError("Cédula o contraseña incorrectos", status_code=401)
+
     # Intentar Supabase Auth primero
     try:
         session = await sign_in_with_password(user.email, data.password)
@@ -122,19 +177,9 @@ async def authenticate_user(db: AsyncSession, data: UserLogin) -> tuple[User, Su
             raise AuthError(exc.message, status_code=exc.status_code) from exc
 
     # Fallback: verificar contra password_hash local (backward-compatibilidad)
-    if user.password_hash:
-        from app.core.security import verify_password
-        from app.core.security import create_access_token as local_create_token
-        if verify_password(data.password, user.password_hash):
-            fake_token = local_create_token(subject=str(user.id))
-            fake_session = SupabaseSession(
-                access_token=fake_token,
-                refresh_token="",
-                expires_in=86400,
-                auth_user_id=user.auth_user_id if user.auth_user_id is not None else UUID(int=user.id),
-                email=user.email,
-            )
-            return user, fake_session
+    local_session = _verify_local_password(user, data.password)
+    if local_session is not None:
+        return user, local_session
 
     raise AuthError("Cédula o contraseña incorrectos", status_code=401)
 
@@ -225,10 +270,11 @@ async def update_user_profile(
         if result.scalar_one_or_none() is not None:
             raise AuthError("El correo electrónico ya está en uso", status_code=409)
 
-        try:
-            await supabase_update_user(access_token, email=new_email)
-        except SupabaseAuthError as exc:
-            raise AuthError(exc.message, status_code=exc.status_code) from exc
+        if not _local_auth_enabled():
+            try:
+                await supabase_update_user(access_token, email=new_email)
+            except SupabaseAuthError as exc:
+                raise AuthError(exc.message, status_code=exc.status_code) from exc
 
     for field, value in updates.items():
         setattr(user, field, value)
@@ -246,6 +292,13 @@ async def change_user_password(
     """Cambia contraseña verificando la actual vía Supabase."""
     if data.current_password == data.new_password:
         raise AuthError("La nueva contraseña debe ser diferente a la actual", status_code=400)
+
+    if _local_auth_enabled():
+        if not user.password_hash or not verify_password(data.current_password, user.password_hash):
+            raise AuthError("La contraseña actual es incorrecta", status_code=400)
+        user.password_hash = get_password_hash(data.new_password)
+        await db.commit()
+        return
 
     try:
         session = await sign_in_with_password(user.email, data.current_password)

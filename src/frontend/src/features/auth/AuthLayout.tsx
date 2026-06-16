@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { Leaf } from 'lucide-react'
 
 interface AuthLayoutProps {
   title: string
@@ -9,19 +8,17 @@ interface AuthLayoutProps {
 
 export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F7F8F2] px-4">
-      <section className="w-full max-w-md rounded-lg border border-[#E5E7EB] bg-white px-8 py-10 shadow-sm">
-        {/* Logo */}
-        <div className="mb-2 flex flex-col items-center text-center">
-          <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl">
-            <Leaf className="h-8 w-8 text-[#14532D]" />
-          </div>
-          <span className="mb-6 text-sm font-semibold uppercase tracking-[0.22em] text-[#14532D]">
-            SynapSeed
-          </span>
+    <main className="flex min-h-screen items-center justify-center bg-[#F7F8F2] px-5 py-10 text-[#111827]">
+      <section className="w-full max-w-[580px] rounded-xl border border-[#E5E7EB] bg-white px-8 py-9 shadow-[0_2px_2px_rgba(17,24,39,0.18)] sm:px-10">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <img
+            src="/brand/synapseed-color-cropped.png"
+            alt="SynapSeed"
+            className="mb-8 h-auto w-[300px] object-contain"
+          />
 
-          <h1 className="text-2xl font-bold text-[#111827]">{title}</h1>
-          <p className="mt-1 text-sm text-[#6B7280]">{subtitle}</p>
+          <h1 className="text-[32px] font-bold leading-tight tracking-normal text-[#111827]">{title}</h1>
+          <p className="mt-4 text-xl leading-7 text-[#6B7280]">{subtitle}</p>
         </div>
 
         {children}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -8,6 +8,9 @@ import * as Toast from '@radix-ui/react-toast'
 import { Lock, UserRound } from 'lucide-react'
 
 import { useAuthStore } from '@/stores/authStore'
+import { SynapButton, TextField } from '@/components/ui/prototype'
+import { buttonClasses } from '@/components/ui/prototypeStyles'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { AuthLayout } from './AuthLayout'
 
 const loginSchema = z.object({
@@ -64,16 +67,15 @@ export function LoginPage() {
       setToastOpen(true)
       window.setTimeout(() => navigate('/zones'), 300)
     } catch (error: unknown) {
-      const message = axios.isAxiosError(error)
-        ? error.response?.data?.detail ?? 'No fue posible iniciar sesión. Verifique sus credenciales.'
-        : 'No fue posible iniciar sesión. Intente nuevamente.'
+      const message = getApiErrorMessage(
+        error,
+        'No fue posible iniciar sesión. Verifique sus credenciales.',
+      )
       setToastTitle('No se pudo iniciar sesión')
       setToastDescription(String(message))
       setToastOpen(true)
     }
   }
-
-  const identificationHint = useMemo(() => 'Formato sugerido: 1 2345 6789', [])
 
   return (
     <Toast.Provider swipeDirection="right">
@@ -81,81 +83,54 @@ export function LoginPage() {
         title="Iniciar sesión"
         subtitle="Ingrese sus credenciales para acceder a su cuenta"
       >
-        <form className="mt-6 space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
-          {/* Número de Identificación */}
-          <div className="space-y-2">
-            <label htmlFor="identification" className="text-sm font-medium text-[#111827]">
-              Número de Identificación
-            </label>
-            <div className="relative">
-              <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#16A34A]">
-                <UserRound className="h-4 w-4" />
-              </span>
-              <input
-                id="identification"
-                type="text"
-                inputMode="numeric"
-                autoComplete="username"
-                placeholder="0 0000 0000"
-                className="w-full rounded-lg border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] placeholder-[#6B7280] shadow-sm transition focus:border-[#16A34A] focus:outline-none focus:ring-2 focus:ring-[#16A34A]/20"
-                {...register('identification', {
-                  onChange: (event) => {
-                    const formatted = formatIdentification(event.target.value)
-                    setValue('identification', formatted, { shouldValidate: true })
-                  },
-                })}
-              />
-            </div>
-            <p className="text-xs text-[#6B7280]">{identificationHint}</p>
-            {errors.identification && (
-              <p className="text-sm text-[#DC2626]">{errors.identification.message}</p>
-            )}
-          </div>
+        <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
+          <TextField
+            label="Número de identificación:"
+            icon={UserRound}
+            type="text"
+            inputMode="numeric"
+            autoComplete="username"
+            placeholder="0 0000 0000"
+            error={errors.identification?.message}
+            {...register('identification', {
+              onChange: (event) => {
+                const formatted = formatIdentification(event.target.value)
+                setValue('identification', formatted, { shouldValidate: true })
+              },
+            })}
+          />
 
-          {/* Contraseña */}
-          <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-medium text-[#111827]">
-              Contraseña
-            </label>
-            <div className="relative">
-              <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#16A34A]">
-                <Lock className="h-4 w-4" />
-              </span>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="********"
-                className="w-full rounded-lg border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] placeholder-[#6B7280] shadow-sm transition focus:border-[#16A34A] focus:outline-none focus:ring-2 focus:ring-[#16A34A]/20"
-                {...register('password')}
-              />
-            </div>
-            {errors.password && <p className="text-sm text-[#DC2626]">{errors.password.message}</p>}
-          </div>
+          <TextField
+            label="Contraseña:"
+            icon={Lock}
+            type="password"
+            autoComplete="current-password"
+            placeholder="********"
+            error={errors.password?.message}
+            {...register('password')}
+          />
 
-          {/* Botón Iniciar sesión */}
-          <button
+          <SynapButton
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-lg bg-[#16A34A] px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#15803D] disabled:cursor-not-allowed disabled:opacity-60"
+            size="lg"
+            className="w-full"
           >
             {isSubmitting ? 'Iniciando sesión...' : 'Iniciar sesión'}
-          </button>
+          </SynapButton>
 
-          {/* Enlace ¿Olvidaste tu contraseña? */}
-          <div className="text-center">
+          <div className="pt-1 text-center">
             <button
               type="button"
-              className="text-sm text-[#6B7280] transition hover:text-[#16A34A]"
+              className="text-lg text-[#6B7280] transition hover:text-[#16A34A]"
             >
               ¿Olvidaste tu contraseña?
             </button>
           </div>
 
-          {/* Botón Crear cuenta */}
           <Link
             to="/register"
-            className="block w-full rounded-lg border border-[#16A34A] bg-transparent px-4 py-3 text-center text-sm font-bold text-[#16A34A] transition hover:bg-[#16A34A]/5"
+            className={buttonClasses({ variant: 'outline', size: 'lg', className: 'w-full border-[#16A34A] text-[#16A34A]' })}
           >
             Crear cuenta
           </Link>

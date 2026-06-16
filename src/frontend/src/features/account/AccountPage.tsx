@@ -4,10 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import axios from 'axios'
 import * as Toast from '@radix-ui/react-toast'
-import { Key, Lock, Mail, Phone, ShieldCheck, UserRound } from 'lucide-react'
+import { Lock, UserRound } from 'lucide-react'
 
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
+import { PageHeader, Panel, SectionTitle, SynapButton, TextField } from '@/components/ui/prototype'
 
 const profileSchema = z
   .object({
@@ -18,21 +19,16 @@ const profileSchema = z
       .string()
       .trim()
       .regex(/^\+506\s\d{4}\s\d{4}$/, 'Ingrese un teléfono válido con formato +506 8888 8888.'),
-    currentPassword: z.string().optional().or(z.literal('')),
     newPassword: z.string().optional().or(z.literal('')),
     confirmPassword: z.string().optional().or(z.literal('')),
   })
-  .refine((data) => !data.newPassword || data.newPassword.length >= 6, {
-    message: 'La contraseña debe tener al menos 6 caracteres.',
+  .refine((data) => !data.newPassword || data.newPassword.length >= 8, {
+    message: 'La contraseña debe tener al menos 8 caracteres.',
     path: ['newPassword'],
   })
   .refine((data) => !data.newPassword || data.newPassword === data.confirmPassword, {
     message: 'Las contraseñas no coinciden.',
     path: ['confirmPassword'],
-  })
-  .refine((data) => !data.newPassword || data.currentPassword, {
-    message: 'Debe ingresar su contraseña actual.',
-    path: ['currentPassword'],
   })
 
 type AccountFormValues = z.infer<typeof profileSchema>
@@ -57,7 +53,6 @@ export function AccountPage() {
       fullName: user?.full_name ?? '',
       email: user?.email ?? '',
       phone: '+506 8888 8888',
-      currentPassword: '',
       newPassword: '',
       confirmPassword: '',
     },
@@ -76,62 +71,59 @@ export function AccountPage() {
           fullName: profile.full_name ?? '',
           email: profile.email ?? '',
           phone: profile.phone?.replace(/-/g, ' ') ?? '+506 8888 8888',
-          currentPassword: '',
           newPassword: '',
           confirmPassword: '',
         })
         login(token, {
-          id: profile.id ?? user?.id ?? 'demo-user',
+          id: String(profile.id ?? user?.id ?? 'demo-user'),
           identification: profile.identification ?? user?.identification ?? '',
           full_name: profile.full_name ?? user?.full_name ?? '',
           email: profile.email ?? user?.email ?? '',
         })
       } catch {
-        // Fallback to current store values.
+        // Keep persisted values if the profile endpoint is not available.
       }
     }
 
     void loadProfile()
   }, [token, user?.email, user?.full_name, user?.identification, user?.id, login, reset])
 
+  const resetToUser = () => {
+    reset({
+      identification: user?.identification ?? '',
+      fullName: user?.full_name ?? '',
+      email: user?.email ?? '',
+      phone: '+506 8888 8888',
+      newPassword: '',
+      confirmPassword: '',
+    })
+  }
+
   const onSubmit = async (values: AccountFormValues) => {
     try {
-      const requests: Promise<unknown>[] = []
       const profileChanged =
         values.fullName.trim() !== (user?.full_name ?? '') ||
         values.email.trim() !== (user?.email ?? '') ||
         values.phone.trim() !== '+506 8888 8888'
 
-      if (profileChanged) {
-        requests.push(
-          axios.put(
-            '/api/v1/users/me',
-            {
-              full_name: values.fullName.trim(),
-              email: values.email.trim(),
-              phone: values.phone.trim(),
-            },
-            { headers: { Authorization: `Bearer ${token}` } },
-          ),
-        )
+      if (values.newPassword) {
+        setToastTitle('Contraseña no actualizada')
+        setToastDescription('El backend actual requiere contraseña actual; el prototipo solo muestra contraseña nueva.')
+        setToastOpen(true)
+        return
       }
 
-      if (values.newPassword && values.currentPassword) {
-        requests.push(
-          axios.put(
-            '/api/v1/users/me/password',
-            {
-              current_password: values.currentPassword,
-              new_password: values.newPassword,
-            },
-            { headers: { Authorization: `Bearer ${token}` } },
-          ),
-        )
-      }
-
-      await Promise.all(requests)
-
       if (profileChanged) {
+        await axios.put(
+          '/api/v1/users/me',
+          {
+            full_name: values.fullName.trim(),
+            email: values.email.trim(),
+            phone: values.phone.trim(),
+          },
+          { headers: { Authorization: `Bearer ${token}` } },
+        )
+
         login(token ?? '', {
           id: user?.id ?? 'demo-user',
           identification: values.identification,
@@ -141,7 +133,7 @@ export function AccountPage() {
       }
 
       setToastTitle('Cambios guardados')
-      setToastDescription('Tu perfil y/o contraseña se actualizaron correctamente.')
+      setToastDescription('Tu perfil se actualizó correctamente.')
       setToastOpen(true)
     } catch (error: unknown) {
       const message = axios.isAxiosError(error)
@@ -156,172 +148,56 @@ export function AccountPage() {
   return (
     <Toast.Provider swipeDirection="right">
       <AppLayout>
-        <section className="mx-auto flex max-w-6xl flex-col gap-6">
-          <header className="flex flex-col gap-2">
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-primary-700">Mi cuenta</p>
-            <h1 className="text-3xl font-semibold text-[#111827]">Configuración de perfil y seguridad</h1>
-            <p className="text-sm text-[#6B7280]">Actualiza tus datos personales y cambia la contraseña si es necesario.</p>
-          </header>
+        <section className="max-w-[1140px]">
+          <PageHeader
+            title="Mi cuenta"
+            subtitle="Actualice su información personal y credenciales de acceso"
+          />
 
-          <form className="space-y-6" onSubmit={handleSubmit(onSubmit)} noValidate>
-            <article className="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm sm:p-8">
-              <div className="mb-6 flex items-center gap-3">
-                <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-700 ring-1 ring-primary-100">
-                  <UserRound className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-[#111827]">Datos personales</h2>
-                  <p className="text-sm text-[#6B7280]">Tu identidad permanece protegida y solo lectura.</p>
-                </div>
+          <form onSubmit={handleSubmit(onSubmit)} noValidate>
+            <Panel className="px-10 py-8">
+              <SectionTitle icon={UserRound}>Datos personales</SectionTitle>
+              <div className="grid gap-x-10 gap-y-6 md:grid-cols-2">
+                <TextField
+                  label="Número de identificación:"
+                  type="text"
+                  disabled
+                  {...register('identification')}
+                />
+                <TextField label="Nombre completo:" type="text" error={errors.fullName?.message} {...register('fullName')} />
+                <TextField label="Correo electrónico:" type="email" error={errors.email?.message} {...register('email')} />
+                <TextField label="Teléfono:" type="text" error={errors.phone?.message} {...register('phone')} />
               </div>
 
-              <div className="grid gap-5 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-[#111827]">Número de identificación</label>
-                  <input
-                    type="text"
-                    disabled
-                    className="w-full rounded-xl border border-[#E5E7EB] bg-[#F7F8F2] px-4 py-3 text-sm text-[#111827] shadow-sm"
-                    {...register('identification')}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="fullName" className="text-sm font-medium text-[#111827]">Nombre completo</label>
-                  <input
-                    id="fullName"
-                    type="text"
-                    className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                    {...register('fullName')}
-                  />
-                  {errors.fullName && <p className="text-sm text-[#DC2626]">{errors.fullName.message}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium text-[#111827]">Correo electrónico</label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#6B7280]">
-                      <Mail className="h-4 w-4" />
-                    </span>
-                    <input
-                      id="email"
-                      type="email"
-                      className="w-full rounded-xl border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                      {...register('email')}
-                    />
-                  </div>
-                  {errors.email && <p className="text-sm text-[#DC2626]">{errors.email.message}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="phone" className="text-sm font-medium text-[#111827]">Teléfono</label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#6B7280]">
-                      <Phone className="h-4 w-4" />
-                    </span>
-                    <input
-                      id="phone"
-                      type="text"
-                      className="w-full rounded-xl border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                      {...register('phone')}
-                    />
-                  </div>
-                  {errors.phone && <p className="text-sm text-[#DC2626]">{errors.phone.message}</p>}
-                </div>
-              </div>
-            </article>
-
-            <article className="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm sm:p-8">
-              <div className="mb-4 flex items-center gap-3 border-b border-[#E5E7EB] pb-4">
-                <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-700 ring-1 ring-primary-100">
-                  <ShieldCheck className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-[#111827]">Seguridad</h2>
-                  <p className="text-sm text-[#6B7280]">Actualiza tu contraseña cuando lo necesites.</p>
-                </div>
+              <SectionTitle icon={Lock} className="mt-10">
+                Seguridad
+              </SectionTitle>
+              <div className="grid gap-x-10 gap-y-6 md:grid-cols-2">
+                <TextField
+                  label="Contraseña nueva:"
+                  type="password"
+                  placeholder="********"
+                  error={errors.newPassword?.message}
+                  {...register('newPassword')}
+                />
+                <TextField
+                  label="Confirmar contraseña nueva:"
+                  type="password"
+                  placeholder="********"
+                  error={errors.confirmPassword?.message}
+                  {...register('confirmPassword')}
+                />
               </div>
 
-              <div className="grid gap-5 md:grid-cols-3">
-                <div className="space-y-2">
-                  <label htmlFor="currentPassword" className="text-sm font-medium text-[#111827]">Contraseña actual</label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#6B7280]">
-                      <Key className="h-4 w-4" />
-                    </span>
-                    <input
-                      id="currentPassword"
-                      type="password"
-                      placeholder="••••••••"
-                      className="w-full rounded-xl border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                      {...register('currentPassword')}
-                    />
-                  </div>
-                  {errors.currentPassword && <p className="text-sm text-[#DC2626]">{errors.currentPassword.message}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="newPassword" className="text-sm font-medium text-[#111827]">Contraseña nueva</label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#6B7280]">
-                      <Lock className="h-4 w-4" />
-                    </span>
-                    <input
-                      id="newPassword"
-                      type="password"
-                      placeholder="••••••••"
-                      className="w-full rounded-xl border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                      {...register('newPassword')}
-                    />
-                  </div>
-                  {errors.newPassword && <p className="text-sm text-[#DC2626]">{errors.newPassword.message}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="confirmPassword" className="text-sm font-medium text-[#111827]">Confirmar contraseña nueva</label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#6B7280]">
-                      <Lock className="h-4 w-4" />
-                    </span>
-                    <input
-                      id="confirmPassword"
-                      type="password"
-                      placeholder="••••••••"
-                      className="w-full rounded-xl border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                      {...register('confirmPassword')}
-                    />
-                  </div>
-                  {errors.confirmPassword && <p className="text-sm text-[#DC2626]">{errors.confirmPassword.message}</p>}
-                </div>
+              <div className="mt-12 flex flex-col justify-end gap-4 border-t border-[#9CA3AF] pt-6 sm:flex-row">
+                <SynapButton type="button" variant="outline" className="min-w-[210px]" onClick={resetToUser}>
+                  Cancelar
+                </SynapButton>
+                <SynapButton type="submit" disabled={isSubmitting} className="min-w-[230px]">
+                  {isSubmitting ? 'Guardando...' : 'Guardar cambios'}
+                </SynapButton>
               </div>
-            </article>
-
-            <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
-              <button
-                type="button"
-                onClick={() => {
-                  reset({
-                    identification: user?.identification ?? '',
-                    fullName: user?.full_name ?? '',
-                    email: user?.email ?? '',
-                    phone: '+506 8888 8888',
-                    currentPassword: '',
-                    newPassword: '',
-                    confirmPassword: '',
-                  })
-                }}
-                className="rounded-xl border border-[#D1D5DB] bg-white px-4 py-3 text-sm font-semibold text-[#111827] shadow-sm transition hover:bg-[#F7F8F2]"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="rounded-xl bg-[#16A34A] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#14532D] disabled:cursor-not-allowed disabled:bg-primary-300"
-              >
-                {isSubmitting ? 'Guardando...' : 'Guardar cambios'}
-              </button>
-            </div>
+            </Panel>
           </form>
         </section>
 

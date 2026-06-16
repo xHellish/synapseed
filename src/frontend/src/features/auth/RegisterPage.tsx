@@ -7,6 +7,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import * as Toast from '@radix-ui/react-toast'
 import { BadgeCheck, Lock, Mail, Phone, UserRound } from 'lucide-react'
 
+import { SynapButton, TextField } from '@/components/ui/prototype'
+import { buttonClasses } from '@/components/ui/prototypeStyles'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { AuthLayout } from './AuthLayout'
 
 const registerSchema = z
@@ -22,8 +25,8 @@ const registerSchema = z
       .trim()
       .regex(/^\d{4}\s-\s\d{4}$/, 'Ingrese un teléfono válido en formato 8888 - 8888.'),
     email: z.string().trim().email('Ingrese un correo electrónico válido.'),
-    password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.'),
-    confirmPassword: z.string().min(6, 'Confirme su contraseña.'),
+    password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres.'),
+    confirmPassword: z.string().min(8, 'Confirme su contraseña.'),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Las contraseñas no coinciden.',
@@ -83,9 +86,10 @@ export function RegisterPage() {
       setToastOpen(true)
       window.setTimeout(() => navigate('/login'), 350)
     } catch (error: unknown) {
-      const message = axios.isAxiosError(error)
-        ? error.response?.data?.detail ?? 'No fue posible crear la cuenta. Verifique los datos ingresados.'
-        : 'No fue posible crear la cuenta. Intente nuevamente.'
+      const message = getApiErrorMessage(
+        error,
+        'No fue posible crear la cuenta. Verifique los datos ingresados.',
+      )
 
       setToastTitle('No se pudo crear la cuenta')
       setToastDescription(String(message))
@@ -100,134 +104,80 @@ export function RegisterPage() {
         subtitle="Cree una cuenta para recibir recomendaciones personalizadas"
       >
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2">
-              <label htmlFor="identification" className="text-sm font-medium text-[#111827]">Número de identificación</label>
-              <div className="relative">
-                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#6B7280]">
-                  <BadgeCheck className="h-4 w-4" />
-                </span>
-                <input
-                  id="identification"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="0 0000 0000"
-                  className="w-full rounded-xl border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                  {...register('identification', {
-                    onChange: (event) => {
-                      const formatted = formatIdentification(event.target.value)
-                      setValue('identification', formatted, { shouldValidate: true })
-                    },
-                  })}
-                />
-              </div>
-              {errors.identification && <p className="text-sm text-[#DC2626]">{errors.identification.message}</p>}
-            </div>
+          <TextField
+            label="Número de identificación:"
+            icon={BadgeCheck}
+            type="text"
+            inputMode="numeric"
+            placeholder="0 0000 0000"
+            error={errors.identification?.message}
+            {...register('identification', {
+              onChange: (event) => {
+                const formatted = formatIdentification(event.target.value)
+                setValue('identification', formatted, { shouldValidate: true })
+              },
+            })}
+          />
 
-            <div className="space-y-2 sm:col-span-2">
-              <label htmlFor="fullName" className="text-sm font-medium text-[#111827]">Nombre completo</label>
-              <div className="relative">
-                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#6B7280]">
-                  <UserRound className="h-4 w-4" />
-                </span>
-                <input
-                  id="fullName"
-                  type="text"
-                  placeholder="Juan Pérez González"
-                  className="w-full rounded-xl border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                  {...register('fullName')}
-                />
-              </div>
-              {errors.fullName && <p className="text-sm text-[#DC2626]">{errors.fullName.message}</p>}
-            </div>
+          <TextField
+            label="Nombre completo:"
+            icon={UserRound}
+            type="text"
+            placeholder="Juan Pérez Gonzáles"
+            error={errors.fullName?.message}
+            {...register('fullName')}
+          />
 
-            <div className="space-y-2 sm:col-span-2">
-              <label htmlFor="phone" className="text-sm font-medium text-[#111827]">Teléfono</label>
-              <div className="relative">
-                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#6B7280]">
-                  <Phone className="h-4 w-4" />
-                </span>
-                <input
-                  id="phone"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="8888 - 8888"
-                  className="w-full rounded-xl border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                  {...register('phone', {
-                    onChange: (event) => {
-                      const formatted = formatPhone(event.target.value)
-                      setValue('phone', formatted, { shouldValidate: true })
-                    },
-                  })}
-                />
-              </div>
-              {errors.phone && <p className="text-sm text-[#DC2626]">{errors.phone.message}</p>}
-            </div>
+          <TextField
+            label="Teléfono:"
+            icon={Phone}
+            type="text"
+            inputMode="numeric"
+            placeholder="8888 - 8888"
+            error={errors.phone?.message}
+            {...register('phone', {
+              onChange: (event) => {
+                const formatted = formatPhone(event.target.value)
+                setValue('phone', formatted, { shouldValidate: true })
+              },
+            })}
+          />
 
-            <div className="space-y-2 sm:col-span-2">
-              <label htmlFor="email" className="text-sm font-medium text-[#111827]">Correo electrónico</label>
-              <div className="relative">
-                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#6B7280]">
-                  <Mail className="h-4 w-4" />
-                </span>
-                <input
-                  id="email"
-                  type="email"
-                  placeholder="juan@ejemplo.com"
-                  className="w-full rounded-xl border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                  {...register('email')}
-                />
-              </div>
-              {errors.email && <p className="text-sm text-[#DC2626]">{errors.email.message}</p>}
-            </div>
+          <TextField
+            label="Correo electrónico:"
+            icon={Mail}
+            type="email"
+            placeholder="juan@ejemplo.com"
+            error={errors.email?.message}
+            {...register('email')}
+          />
 
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium text-[#111827]">Contraseña</label>
-              <div className="relative">
-                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#6B7280]">
-                  <Lock className="h-4 w-4" />
-                </span>
-                <input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full rounded-xl border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                  {...register('password')}
-                />
-              </div>
-              {errors.password && <p className="text-sm text-[#DC2626]">{errors.password.message}</p>}
-            </div>
+          <TextField
+            label="Contraseña:"
+            icon={Lock}
+            type="password"
+            placeholder="********"
+            error={errors.password?.message}
+            {...register('password')}
+          />
 
-            <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="text-sm font-medium text-[#111827]">Confirmar contraseña</label>
-              <div className="relative">
-                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#6B7280]">
-                  <Lock className="h-4 w-4" />
-                </span>
-                <input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full rounded-xl border border-[#E5E7EB] bg-white py-3 pl-10 pr-4 text-sm text-[#111827] shadow-sm transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                  {...register('confirmPassword')}
-                />
-              </div>
-              {errors.confirmPassword && <p className="text-sm text-[#DC2626]">{errors.confirmPassword.message}</p>}
-            </div>
-          </div>
+          <TextField
+            label="Confirmar contraseña:"
+            icon={Lock}
+            type="password"
+            placeholder="********"
+            error={errors.confirmPassword?.message}
+            {...register('confirmPassword')}
+          />
 
-          <div className="space-y-3 pt-1">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full rounded-xl bg-[#16A34A] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#14532D] disabled:cursor-not-allowed disabled:bg-primary-300"
-            >
+          <div className="space-y-4 pt-4">
+            <SynapButton type="submit" disabled={isSubmitting} size="lg" className="w-full">
               {isSubmitting ? 'Creando cuenta...' : 'Crear cuenta'}
-            </button>
+            </SynapButton>
 
             <Link
               to="/login"
-              className="block w-full rounded-xl border border-[#16A34A] bg-transparent px-4 py-3 text-center text-sm font-semibold text-[#16A34A] transition hover:bg-primary-50"
+              className={buttonClasses({ variant: 'outline', size: 'lg', className: 'w-full border-[#16A34A] text-[#16A34A]' })}
             >
               Ya tengo cuenta
             </Link>

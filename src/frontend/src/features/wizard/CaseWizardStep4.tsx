@@ -1,141 +1,101 @@
+import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { useParams } from 'react-router-dom'
-import { Phone, Mail, MapPin, Leaf } from 'lucide-react'
+import { Leaf, Mail, MapPin, Phone } from 'lucide-react'
 
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { useWizardStore } from '@/stores/wizardStore'
-import { cn } from '@/lib/cn'
+import { CaseStepper, PageHeader, Panel, SynapButton } from '@/components/ui/prototype'
+import { buttonClasses } from '@/components/ui/prototypeStyles'
+import { normalizeProviders, type ProviderPayload } from './recommendationMapper'
 
-/* ──────────────────────────────────────────────
-   Tipos
-   ────────────────────────────────────────────── */
-
-interface Provider {
-  id: string | number
-  name: string
-  product_name: string
-  phone?: string
-  email?: string
-  location?: string
-}
-
-/* ── Demo data (para visualización sin backend) ── */
-const DEMO_PROVIDERS: Provider[] = [
+const DEMO_PROVIDERS = normalizeProviders([
   {
     id: 1,
-    name: 'AgroSuministros del Valle',
-    product_name: 'FungiShield Pro',
-    phone: '+506 2274-5632',
-    email: 'ventas@agrosuministros.cr',
-    location: 'Alajuela, Costa Rica',
+    nombre: 'AgroSuministros del Valle',
+    producto_asociado: 'FungiShield Pro',
+    product_id: 1,
+    telefono: '2345 - 6789',
+    correo: 'ventas@agrovalle.cr',
+    ubicacion: 'Cartago, Pacayas',
   },
   {
     id: 2,
-    name: 'Distribuidora Agrícola Centroamericana',
-    product_name: 'AgriProtect Plus',
-    phone: '+506 2256-8971',
-    email: 'info@daccentro.com',
-    location: 'Heredia, Costa Rica',
+    nombre: 'Distribuidora Agrícola Central',
+    producto_asociado: 'AgriProtect Plus',
+    product_id: 2,
+    telefono: '2345 - 6782',
+    correo: 'info@agricentral.cr',
+    ubicacion: 'Cartago, El Carmen',
   },
   {
     id: 3,
-    name: 'EcoSoluciones CR',
-    product_name: 'EcoFungi Natural',
-    phone: '+506 2283-4512',
-    email: 'contacto@ecosoluciones.cr',
-    location: 'Cartago, Costa Rica',
+    nombre: 'Insumos Orgánicos La Esperanza',
+    producto_asociado: 'EcoFungi Natural',
+    product_id: 3,
+    telefono: '2345 - 6783',
+    correo: 'ventas@laesperanza.cr',
+    ubicacion: 'Cartago, Taras',
   },
-]
-
-/* ──────────────────────────────────────────────
-   Stepper
-   ────────────────────────────────────────────── */
-
-function Stepper({ step }: { step: number }) {
-  const steps = ['Datos del caso', 'Confirmación', 'Recomendaciones', 'Proveedores']
-  return (
-    <div className="mb-6 flex w-full items-center gap-4">
-      {steps.map((label, i) => {
-        const idx = i + 1
-        const active = idx === step
-        const done = idx < step
-        return (
-          <div key={label} className="flex items-center gap-3">
-            <div
-              className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold',
-                done || active ? 'bg-[#16A34A] text-white' : 'border border-[#E5E7EB] bg-white text-[#6B7280]',
-              )}
-            >
-              {idx}
-            </div>
-            <div className="text-sm">{label}</div>
-            {i < steps.length - 1 && (
-              <div className={cn('h-0.5 w-12', done ? 'bg-[#16A34A]' : 'bg-[#E5E7EB]')} />
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-/* ──────────────────────────────────────────────
-   Componente principal
-   ────────────────────────────────────────────── */
+])
 
 export function CaseWizardStep4() {
-  const token = useAuthStore((s) => s.token)
-  const wizardStep = useWizardStore((s) => s.step)
+  const token = useAuthStore((state) => state.token)
+  const setStep = useWizardStore((state) => state.setStep)
   const { id } = useParams<{ id: string }>()
-
   const isDemo = !id || id === 'demo'
+
+  useEffect(() => {
+    setStep(4)
+  }, [setStep])
 
   const {
     data: providersData,
     isLoading,
     isError,
-  } = useQuery<Provider[]>({
+  } = useQuery<ProviderPayload[]>({
     queryKey: ['providers', id],
     queryFn: async () => {
-      if (isDemo) return DEMO_PROVIDERS
-      const res = await axios.get(`/api/v1/recommendations/${id}/providers`, {
+      if (isDemo) return []
+      const response = await axios.get(`/api/v1/recommendations/${id}/providers`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      return res.data as Provider[]
+      return response.data
     },
-    enabled: !!token && !isDemo,
+    enabled: isDemo || !!token,
   })
 
-  const providers = providersData ?? (isDemo ? DEMO_PROVIDERS : [])
-  /* — Loading state */
+  const providers = useMemo(
+    () => (isDemo ? DEMO_PROVIDERS : normalizeProviders(providersData ?? [])),
+    [isDemo, providersData],
+  )
+
   if (isLoading) {
     return (
       <AppLayout>
-        <section className="mx-auto max-w-4xl">
-          <Stepper step={wizardStep} />
-          <div className="flex items-center justify-center py-24">
-            <div className="flex flex-col items-center gap-3 text-[#6B7280]">
-              <Leaf className="h-8 w-8 animate-pulse text-[#16A34A]" />
-              <p className="text-sm">Cargando proveedores…</p>
+        <section className="max-w-[1140px]">
+          <CaseStepper step={4} />
+          <Panel className="flex min-h-[360px] items-center justify-center p-10">
+            <div className="flex flex-col items-center gap-4 text-[#6B7280]">
+              <Leaf className="h-12 w-12 animate-pulse text-[#16A34A]" />
+              <p className="text-lg font-semibold">Cargando proveedores...</p>
             </div>
-          </div>
+          </Panel>
         </section>
       </AppLayout>
     )
   }
 
-  /* — Error / empty state */
   if (isError && providers.length === 0) {
     return (
       <AppLayout>
-        <section className="mx-auto max-w-4xl">
-          <Stepper step={wizardStep} />
-          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 text-center shadow-sm">
-            <p className="text-sm text-[#6B7280]">No se encontraron proveedores disponibles.</p>
-          </div>
+        <section className="max-w-[1140px]">
+          <CaseStepper step={4} />
+          <Panel className="p-10 text-center">
+            <p className="text-lg text-[#6B7280]">No se encontraron proveedores disponibles.</p>
+          </Panel>
         </section>
       </AppLayout>
     )
@@ -143,63 +103,54 @@ export function CaseWizardStep4() {
 
   return (
     <AppLayout>
-      <section className="mx-auto max-w-4xl">
-        <Stepper step={wizardStep} />
+      <section className="max-w-[1140px]">
+        <PageHeader
+          title="Recomendaciones de productos"
+          subtitle="Revise las opciones recomendadas basadas en su contexto"
+          className="mb-5"
+        />
+        <CaseStepper step={4} />
 
-        <div className="space-y-4">
+        <div className="space-y-11">
           {providers.map((provider) => (
-            <div
+            <Panel
               key={provider.id}
-              className="flex flex-col gap-4 rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+              className="grid gap-8 px-8 py-7 md:grid-cols-[1fr_210px] md:items-center"
             >
-              {/* Información del proveedor */}
-              <div className="flex-1 space-y-2">
-                <h3 className="text-lg font-semibold text-[#111827]">{provider.name}</h3>
-                <p className="text-sm text-[#6B7280]">
-                  Producto asociado: <span className="font-medium text-[#111827]">{provider.product_name}</span>
+              <div>
+                <h3 className="text-2xl font-bold text-[#111827]">{provider.name}</h3>
+                <p className="mt-4 text-xl text-[#6B7280]">
+                  Producto asociado: <span className="font-semibold text-[#111827]">{provider.productName}</span>
                 </p>
-
-                {/* Metadatos de contacto */}
-                <div className="mt-3 flex flex-wrap gap-4 text-sm text-[#6B7280]">
-                  {provider.phone && (
-                    <span className="flex items-center gap-1.5">
-                      <Phone className="h-4 w-4 text-[#16A34A]" />
-                      {provider.phone}
-                    </span>
-                  )}
-                  {provider.email && (
-                    <span className="flex items-center gap-1.5">
-                      <Mail className="h-4 w-4 text-[#16A34A]" />
-                      {provider.email}
-                    </span>
-                  )}
-                  {provider.location && (
-                    <span className="flex items-center gap-1.5">
-                      <MapPin className="h-4 w-4 text-[#16A34A]" />
-                      {provider.location}
-                    </span>
-                  )}
+                <div className="mt-5 space-y-4 text-xl text-[#111827]">
+                  <p className="flex items-center gap-4">
+                    <Phone className="h-5 w-5 text-[#16A34A]" />
+                    {provider.phone}
+                  </p>
+                  <p className="flex items-center gap-4">
+                    <Mail className="h-5 w-5 text-[#16A34A]" />
+                    {provider.email}
+                  </p>
+                  <p className="flex items-center gap-4">
+                    <MapPin className="h-5 w-5 text-[#16A34A]" />
+                    {provider.location}
+                  </p>
                 </div>
               </div>
 
-              {/* Botonera de acción */}
-              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  className="rounded-xl bg-[#16A34A] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#14532D]"
-                >
-                  Contactar
-                </button>
-                {provider.email && (
-                  <a
-                    href={`mailto:${provider.email}`}
-                    className="inline-flex items-center justify-center rounded-xl border border-[#111827] bg-transparent px-4 py-2 text-sm font-semibold text-[#111827] transition hover:bg-[#F7F8F2]"
-                  >
+              <div className="flex flex-col gap-4">
+                <SynapButton className="w-full">Contactar</SynapButton>
+                {provider.email !== 'No disponible' ? (
+                  <a href={`mailto:${provider.email}`} className={buttonClasses({ variant: 'outline', className: 'w-full' })}>
                     Enviar correo
                   </a>
+                ) : (
+                  <SynapButton variant="outline" disabled className="w-full">
+                    Enviar correo
+                  </SynapButton>
                 )}
               </div>
-            </div>
+            </Panel>
           ))}
         </div>
       </section>

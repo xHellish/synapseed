@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useState } from 'react'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import * as Toast from '@radix-ui/react-toast'
+
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
+import { HUMIDITY_OPTIONS, SOIL_OPTIONS, TEMPERATURE_OPTIONS, WATER_OPTIONS } from '@/features/wizard/constants'
+import { PageHeader, Panel, SelectField, SynapButton, TextField } from '@/components/ui/prototype'
 
 const addZoneSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -20,183 +23,171 @@ const addZoneSchema = z.object({
 
 type AddZoneForm = z.infer<typeof addZoneSchema>
 
-export function AddZonePage() {
-  const token = useAuthStore((s) => s.token)
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
+interface ZoneState {
+  zone?: AddZoneForm & { id: string }
+}
 
+export function AddZonePage() {
+  const token = useAuthStore((state) => state.token)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const queryClient = useQueryClient()
+  const editingZone = (location.state as ZoneState | null)?.zone
   const [toastOpen, setToastOpen] = useState(false)
   const [toastTitle, setToastTitle] = useState('')
   const [toastDescription, setToastDescription] = useState('')
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
-    reset,
-  } = useForm<AddZoneForm>({ resolver: zodResolver(addZoneSchema) })
-
-  // Fetch catalogs concurrently
-  const fetchCatalog = async (url: string) => {
-    const res = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
-    return res.data
-  }
-
-  const { data: soilOptions = [] } = useQuery<string[]>({
-    queryKey: ['catalog', 'soil_types'],
-    queryFn: () => fetchCatalog('/api/v1/catalogs/soil-types'),
-    enabled: !!token,
-    retry: 1,
-    staleTime: 1000 * 60 * 60,
+  } = useForm<AddZoneForm>({
+    resolver: zodResolver(addZoneSchema),
+    defaultValues: {
+      name: editingZone?.name ?? '',
+      location: editingZone?.location ?? '',
+      temperature: editingZone?.temperature ?? '',
+      humidity: editingZone?.humidity ?? '',
+      soil_type: editingZone?.soil_type ?? '',
+      water_quality: editingZone?.water_quality ?? '',
+    },
   })
 
-  const { data: humidityOptions = [] } = useQuery<string[]>({
-    queryKey: ['catalog', 'humidity'],
-    queryFn: () => fetchCatalog('/api/v1/catalogs/humidity'),
-    enabled: !!token,
-    retry: 1,
-    staleTime: 1000 * 60 * 60,
-  })
-
-  const { data: temperatureOptions = [] } = useQuery<string[]>({
-    queryKey: ['catalog', 'temperature'],
-    queryFn: () => fetchCatalog('/api/v1/catalogs/temperature'),
-    enabled: !!token,
-    retry: 1,
-    staleTime: 1000 * 60 * 60,
-  })
-
-  const { data: waterOptions = [] } = useQuery<string[]>({
-    queryKey: ['catalog', 'water_quality'],
-    queryFn: () => fetchCatalog('/api/v1/catalogs/water-quality'),
-    enabled: !!token,
-    retry: 1,
-    staleTime: 1000 * 60 * 60,
-  })
-
-  // Opciones fijas (sin dependencia del backend)
-  const TEMPERATURE_OPTIONS = ['Menos de 10°C', '10°C - 15°C', '15°C - 20°C', '20°C - 25°C', '25°C - 30°C', 'Más de 30°C']
-  const HUMIDITY_OPTIONS = ['Muy baja', 'Baja', 'Media', 'Alta', 'Muy alta']
-  const SOIL_OPTIONS = ['Franco', 'Arcilloso', 'Franco Arcilloso', 'Arenoso', 'Volcánico', 'Limoso']
-  const WATER_OPTIONS = ['Potable', 'Regular', 'Salina', 'Buena', 'Contaminada', 'Desconocida']
-
-  const addMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async (payload: AddZoneForm) => {
-      const res = await axios.post('/api/v1/zones', payload, { headers: { Authorization: `Bearer ${token}` } })
-      return res.data
+      if (editingZone?.id) {
+        const response = await axios.put(`/api/v1/zones/${editingZone.id}`, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        return response.data
+      }
+
+      const response = await axios.post('/api/v1/zones', payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      return response.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zones'] })
-      setToastTitle('Zona creada')
-      setToastDescription('La nueva zona fue registrada correctamente.')
+      setToastTitle(editingZone ? 'Zona actualizada' : 'Zona creada')
+      setToastDescription(editingZone ? 'Los cambios se guardaron correctamente.' : 'La nueva zona fue registrada correctamente.')
       setToastOpen(true)
-      // short delay to show toast then navigate
-      setTimeout(() => navigate('/zones'), 400)
+      window.setTimeout(() => navigate('/zones'), 400)
     },
     onError: () => {
       setToastTitle('Error')
-      setToastDescription('No fue posible crear la zona. Intente de nuevo.')
+      setToastDescription(editingZone ? 'No fue posible actualizar la zona.' : 'No fue posible crear la zona.')
       setToastOpen(true)
     },
   })
 
-  useEffect(() => {
-    // Pre-fill defaults if desired
-    reset({ name: '', location: '', temperature: '', humidity: '', soil_type: '', water_quality: '' })
-  }, [reset])
-
   const onSubmit = async (values: AddZoneForm) => {
-    await addMutation.mutateAsync(values)
+    await saveMutation.mutateAsync(values)
   }
 
   return (
     <Toast.Provider swipeDirection="right">
       <AppLayout>
-        <section className="mx-auto max-w-4xl">
-          <header className="mb-6">
-            <h1 className="text-3xl font-semibold text-[#111827]">Añadir nueva zona o finca</h1>
-            <p className="mt-1 text-sm text-[#6B7280]">Registre una nueva zona o finca agrícola para usarla en sus futuras recomendaciones</p>
-          </header>
+        <section className="max-w-[1140px]">
+          <PageHeader
+            title={editingZone ? 'Editar zona o finca' : 'Añadir nueva zona o finca'}
+            subtitle="Registre una nueva zona o finca agrícola para usarla en sus futuras recomendaciones"
+          />
 
-          <form onSubmit={handleSubmit(onSubmit)} className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-[#111827]">Nombre</label>
-                <input {...register('name')} placeholder="Ej: Finca Las Palmas" className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm" />
-                {errors.name && <p className="text-sm text-[#DC2626]">{errors.name.message}</p>}
+          <form onSubmit={handleSubmit(onSubmit)} noValidate>
+            <Panel className="px-10 py-8">
+              <div className="grid gap-x-10 gap-y-7 md:grid-cols-2">
+                <TextField
+                  label="Nombre"
+                  type="text"
+                  placeholder="Ej: Finca Las Palmas"
+                  error={errors.name?.message}
+                  {...register('name')}
+                />
+                <TextField
+                  label="Ubicación"
+                  type="text"
+                  placeholder="Ej: Cartago, Costa Rica"
+                  error={errors.location?.message}
+                  {...register('location')}
+                />
+
+                <Controller
+                  control={control}
+                  name="temperature"
+                  render={({ field }) => (
+                    <SelectField
+                      label="Temperatura"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      options={TEMPERATURE_OPTIONS}
+                      error={errors.temperature?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="humidity"
+                  render={({ field }) => (
+                    <SelectField
+                      label="Humedad"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      options={HUMIDITY_OPTIONS}
+                      error={errors.humidity?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="soil_type"
+                  render={({ field }) => (
+                    <SelectField
+                      label="Tipo de suelo"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      options={SOIL_OPTIONS}
+                      error={errors.soil_type?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="water_quality"
+                  render={({ field }) => (
+                    <SelectField
+                      label="Calidad del agua"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      options={WATER_OPTIONS}
+                      error={errors.water_quality?.message}
+                    />
+                  )}
+                />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-[#111827]">Ubicación</label>
-                <input {...register('location')} placeholder="Ej: Cartago, Costa Rica" className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm" />
-                {errors.location && <p className="text-sm text-[#DC2626]">{errors.location.message}</p>}
+              <div className="mt-12 flex flex-col justify-end gap-4 border-t border-[#9CA3AF] pt-6 sm:flex-row">
+                <SynapButton type="button" variant="outline" className="min-w-[210px]" onClick={() => navigate('/zones')}>
+                  Cancelar
+                </SynapButton>
+                <SynapButton type="submit" disabled={isSubmitting} className="min-w-[230px]">
+                  {isSubmitting ? 'Guardando...' : editingZone ? 'Guardar cambios' : 'Guardar zona'}
+                </SynapButton>
               </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-[#111827]">Temperatura</label>
-                <select {...register('temperature')} defaultValue="" className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm">
-                  <option value="" disabled>Seleccione una opción</option>
-                  {TEMPERATURE_OPTIONS.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-                {errors.temperature && <p className="text-sm text-[#DC2626]">{errors.temperature.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-[#111827]">Humedad</label>
-                <select {...register('humidity')} defaultValue="" className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm">
-                  <option value="" disabled>Seleccione una opción</option>
-                  {HUMIDITY_OPTIONS.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-                {errors.humidity && <p className="text-sm text-[#DC2626]">{errors.humidity.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-[#111827]">Tipo de suelo</label>
-                <select {...register('soil_type')} defaultValue="" className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm">
-                  <option value="" disabled>Seleccione una opción</option>
-                  {SOIL_OPTIONS.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                {errors.soil_type && <p className="text-sm text-[#DC2626]">{errors.soil_type.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-[#111827]">Calidad del agua</label>
-                <select {...register('water_quality')} defaultValue="" className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm">
-                  <option value="" disabled>Seleccione una opción</option>
-                  {WATER_OPTIONS.map((w) => (
-                    <option key={w} value={w}>{w}</option>
-                  ))}
-                </select>
-                {errors.water_quality && <p className="text-sm text-[#DC2626]">{errors.water_quality.message}</p>}
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => navigate('/zones')}
-                className="rounded-xl border border-[#D1D5DB] bg-white px-4 py-2 text-sm font-semibold text-[#111827] hover:bg-[#F7F8F2]"
-              >
-                Cancelar
-              </button>
-              <button type="submit" disabled={isSubmitting} className="rounded-xl bg-[#16A34A] px-4 py-2 text-sm font-semibold text-white hover:bg-[#14532D] disabled:opacity-60">
-                {isSubmitting ? 'Guardando...' : 'Guardar zona'}
-              </button>
-            </div>
+            </Panel>
           </form>
-
-          <Toast.Root open={toastOpen} onOpenChange={setToastOpen} className="z-[100] w-[calc(100vw-2rem)] max-w-md rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-xl">
-            <Toast.Title className="text-sm font-semibold text-[#111827]">{toastTitle}</Toast.Title>
-            <Toast.Description className="mt-1 text-sm text-[#6B7280]">{toastDescription}</Toast.Description>
-          </Toast.Root>
-          <Toast.Viewport className="fixed bottom-4 right-4 z-[101] flex w-auto max-w-sm flex-col gap-2 outline-none" />
         </section>
+
+        <Toast.Root
+          open={toastOpen}
+          onOpenChange={setToastOpen}
+          className="z-[100] w-[calc(100vw-2rem)] max-w-md rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-xl"
+        >
+          <Toast.Title className="text-sm font-semibold text-[#111827]">{toastTitle}</Toast.Title>
+          <Toast.Description className="mt-1 text-sm text-[#6B7280]">{toastDescription}</Toast.Description>
+        </Toast.Root>
+        <Toast.Viewport className="fixed bottom-4 right-4 z-[101] flex w-auto max-w-sm flex-col gap-2 outline-none" />
       </AppLayout>
     </Toast.Provider>
   )
