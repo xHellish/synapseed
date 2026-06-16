@@ -69,7 +69,7 @@ def custom_openapi(app: FastAPI):
         # Esquema de seguridad Bearer JWT
         schema.setdefault("components", {})
         schema["components"]["securitySchemes"] = {
-            "BearerAuth": {
+            "HTTPBearer": {
                 "type": "http",
                 "scheme": "bearer",
                 "bearerFormat": "JWT",
@@ -79,9 +79,6 @@ def custom_openapi(app: FastAPI):
                 ),
             }
         }
-
-        # Seguridad global aplicada a todos los endpoints
-        schema["security"] = [{"BearerAuth": []}]
 
         app.openapi_schema = schema
         return app.openapi_schema
