@@ -1,4 +1,4 @@
-"""Pydantic DTOs para la API y el pipeline de agentes IA."""
+"""Pydantic DTOs para API, pipeline de agentes IA y autenticación."""
 
 from app.schemas.agent_context import AgronomicConditions, ContextAnalysisOutput
 from app.schemas.agent_legal import (
@@ -12,12 +12,10 @@ from app.schemas.agent_recommendations import (
     ProductRecommendation,
     SynthesisOutput,
 )
-from app.schemas.auth import RegisterRequest
 from app.schemas.farmer_input import FarmerContextInput
 
 __all__ = [
     "FarmerContextInput",
-    "RegisterRequest",
     "AgronomicConditions",
     "ContextAnalysisOutput",
     "ProductCandidate",

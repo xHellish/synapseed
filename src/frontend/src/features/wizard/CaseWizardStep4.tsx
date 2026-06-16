@@ -97,20 +97,19 @@ export function CaseWizardStep4() {
     data: providersData,
     isLoading,
     isError,
-  } = useQuery({
+  } = useQuery<Provider[]>({
     queryKey: ['providers', id],
     queryFn: async () => {
       if (isDemo) return DEMO_PROVIDERS
       const res = await axios.get(`/api/v1/recommendations/${id}/providers`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      return res.data
+      return res.data as Provider[]
     },
     enabled: !!token && !isDemo,
   })
 
   const providers = providersData ?? (isDemo ? DEMO_PROVIDERS : [])
-
   /* — Loading state */
   if (isLoading) {
     return (

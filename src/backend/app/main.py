@@ -23,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
 from app import __version__
+from app.api.v1.router import api_router
 from app.config import get_settings
 
 logging.basicConfig(
@@ -61,7 +62,6 @@ def custom_openapi(app: FastAPI):
         )
 
         # Servers: permite que Swagger UI envíe requests al host correcto
-        # tanto en local como cuando se abre desde dentro de Docker
         schema["servers"] = [
             {"url": "http://localhost:8000", "description": "Desarrollo local"},
         ]
@@ -69,7 +69,7 @@ def custom_openapi(app: FastAPI):
         # Esquema de seguridad Bearer JWT
         schema.setdefault("components", {})
         schema["components"]["securitySchemes"] = {
-            "BearerAuth": {
+            "HTTPBearer": {
                 "type": "http",
                 "scheme": "bearer",
                 "bearerFormat": "JWT",
@@ -79,9 +79,6 @@ def custom_openapi(app: FastAPI):
                 ),
             }
         }
-
-        # Seguridad global aplicada a todos los endpoints
-        schema["security"] = [{"BearerAuth": []}]
 
         app.openapi_schema = schema
         return app.openapi_schema
@@ -128,12 +125,12 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # --- Routers ---
-    from app.api.v1 import auth, catalogs, health, recommendations, users, zones
+    # --- Routers: api_router (auth + users v2 Supabase) + routers legacy ---
+    app.include_router(api_router, prefix=settings.api_v1_prefix)
+
+    from app.api.v1 import catalogs, health, recommendations, zones
 
     app.include_router(health.router, prefix=settings.api_v1_prefix)
-    app.include_router(auth.router, prefix=settings.api_v1_prefix)
-    app.include_router(users.router, prefix=settings.api_v1_prefix)
     app.include_router(zones.router, prefix=settings.api_v1_prefix)
     app.include_router(catalogs.router, prefix=settings.api_v1_prefix)
     app.include_router(recommendations.router, prefix=settings.api_v1_prefix)

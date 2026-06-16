@@ -8,7 +8,8 @@ import { useNavigate } from 'react-router-dom'
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { useWizardStore } from '@/stores/wizardStore'
-import { caseStep1Schema, CaseStep1Form } from './schemas'
+import { caseStep1Schema } from './schemas'
+import type { CaseStep1Form } from './schemas'
 
 const TEMPERATURE_OPTIONS = ['Menos de 10°C', '10°C - 15°C', '15°C - 20°C', '20°C - 25°C', '25°C - 30°C', 'Más de 30°C']
 const HUMIDITY_OPTIONS = ['Muy baja', 'Baja', 'Media', 'Alta', 'Muy alta']
@@ -52,7 +53,7 @@ export function CaseWizardStep1() {
   const navigate = useNavigate()
 
   // form
-  const { register, handleSubmit, reset, formState } = useForm<CaseStep1Form>({ resolver: zodResolver(caseStep1Schema) })
+  const { register, handleSubmit, reset } = useForm<CaseStep1Form>({ resolver: zodResolver(caseStep1Schema) })
 
   // fetch catalogs
   const fetchCatalog = async (url: string) => {

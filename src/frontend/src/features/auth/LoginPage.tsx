@@ -51,15 +51,8 @@ export function LoginPage() {
   const onSubmit = async (values: LoginFormValues) => {
     try {
       // Mock para desarrollo sin backend
-      // Simula una respuesta exitosa del backend
-      // const normalizedIdentification = values.identification.replace(/\s+/g, '')
-      // const response = await axios.post('/api/v1/auth/login', {
-      //   identification: normalizedIdentification,
-      //   password: values.password,
-      // })
-      // const { access_token, user } = response.data
-
-      // --- Mock: descomentar lo de arriba cuando haya backend ---
+      // Cuando haya backend, descomentar las líneas de axios.post
+      // y eliminar el bloque mock
       const access_token = 'mock-token-12345'
       const user = {
         id: '1',
