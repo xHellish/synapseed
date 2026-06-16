@@ -74,16 +74,23 @@ export function AddZonePage() {
     staleTime: 1000 * 60 * 60,
   })
 
-  // Fallback options if backend catalogs missing
-  const soilFallback = useMemo(() => (soilOptions && soilOptions.length ? soilOptions : ['Arcilloso', 'Arenoso', 'Franco']), [soilOptions])
-  const humidityFallback = useMemo(() => (humidityOptions && humidityOptions.length ? humidityOptions : ['Alta', 'Media', 'Baja']), [humidityOptions])
-  const temperatureFallback = useMemo(() => (temperatureOptions && temperatureOptions.length ? temperatureOptions : ['<20°C', '20-25°C', '>25°C']), [temperatureOptions])
-  const waterFallback = useMemo(() => (waterOptions && waterOptions.length ? waterOptions : ['Buena', 'Regular', 'Mala']), [waterOptions])
+  // Opciones fijas (sin dependencia del backend)
+  const TEMPERATURE_OPTIONS = ['Menos de 10°C', '10°C - 15°C', '15°C - 20°C', '20°C - 25°C', '25°C - 30°C', 'Más de 30°C']
+  const HUMIDITY_OPTIONS = ['Muy baja', 'Baja', 'Media', 'Alta', 'Muy alta']
+  const SOIL_OPTIONS = ['Franco', 'Arcilloso', 'Franco Arcilloso', 'Arenoso', 'Volcánico', 'Limoso']
+  const WATER_OPTIONS = ['Potable', 'Regular', 'Salina', 'Buena', 'Contaminada', 'Desconocida']
 
   const addMutation = useMutation({
     mutationFn: async (payload: AddZoneForm) => {
-      const res = await axios.post('/api/v1/zones', payload, { headers: { Authorization: `Bearer ${token}` } })
-      return res.data
+      // Mock para desarrollo sin backend
+      // Descomentar cuando haya backend:
+      // const res = await axios.post('/api/v1/zones', payload, { headers: { Authorization: `Bearer ${token}` } })
+      // return res.data
+
+      // --- Mock ---
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      const mockZone = { id: Date.now().toString(), ...payload }
+      return mockZone
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zones'] })
@@ -136,7 +143,7 @@ export function AddZonePage() {
                 <label className="text-sm font-medium text-[#111827]">Temperatura</label>
                 <select {...register('temperature')} defaultValue="" className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm">
                   <option value="" disabled>Seleccione una opción</option>
-                  {temperatureFallback.map((t: string) => (
+                  {TEMPERATURE_OPTIONS.map((t) => (
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
@@ -147,7 +154,7 @@ export function AddZonePage() {
                 <label className="text-sm font-medium text-[#111827]">Humedad</label>
                 <select {...register('humidity')} defaultValue="" className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm">
                   <option value="" disabled>Seleccione una opción</option>
-                  {humidityFallback.map((h: string) => (
+                  {HUMIDITY_OPTIONS.map((h) => (
                     <option key={h} value={h}>{h}</option>
                   ))}
                 </select>
@@ -158,7 +165,7 @@ export function AddZonePage() {
                 <label className="text-sm font-medium text-[#111827]">Tipo de suelo</label>
                 <select {...register('soil_type')} defaultValue="" className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm">
                   <option value="" disabled>Seleccione una opción</option>
-                  {soilFallback.map((s: string) => (
+                  {SOIL_OPTIONS.map((s) => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
@@ -169,7 +176,7 @@ export function AddZonePage() {
                 <label className="text-sm font-medium text-[#111827]">Calidad del agua</label>
                 <select {...register('water_quality')} defaultValue="" className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm">
                   <option value="" disabled>Seleccione una opción</option>
-                  {waterFallback.map((w: string) => (
+                  {WATER_OPTIONS.map((w) => (
                     <option key={w} value={w}>{w}</option>
                   ))}
                 </select>

@@ -11,6 +11,14 @@ import { useWizardStore } from '@/stores/wizardStore'
 import { caseStep1Schema } from './schemas'
 import type { CaseStep1Form } from './schemas'
 
+const TEMPERATURE_OPTIONS = ['Menos de 10°C', '10°C - 15°C', '15°C - 20°C', '20°C - 25°C', '25°C - 30°C', 'Más de 30°C']
+const HUMIDITY_OPTIONS = ['Muy baja', 'Baja', 'Media', 'Alta', 'Muy alta']
+const SOIL_OPTIONS = ['Franco', 'Arcilloso', 'Franco Arcilloso', 'Arenoso', 'Volcánico', 'Limoso']
+const WATER_OPTIONS = ['Potable', 'Regular', 'Salina', 'Buena', 'Contaminada', 'Desconocida']
+const CROP_OPTIONS = ['Tomate', 'Papa', 'Lechuga', 'Arroz', 'Brocoli', 'Pepino']
+const STAGE_OPTIONS = ['Germinación', 'Plántula', 'Crecimiento (Fase vegetativa)', 'Floración', 'Fructificación y Madurez']
+const PROBLEM_OPTIONS = ['Hongo en las hojas', 'Hongos en los tallos', 'Plagas', 'Deficiencia de nutrientes', 'Enfermedad en raiz']
+
 function Stepper({ step }: { step: number }) {
   const steps = ['Datos del caso', 'Confirmación', 'Recomendaciones', 'Proveedores']
   return (
@@ -56,13 +64,8 @@ export function CaseWizardStep1() {
   const { data: fincas = [] } = useQuery({ queryKey: ['user', 'zones'], queryFn: async () => fetchCatalog('/api/v1/zones'), enabled: !!token })
   const { data: crops = [] } = useQuery({ queryKey: ['catalog', 'crops'], queryFn: async () => fetchCatalog('/api/v1/catalogs/crops'), enabled: !!token })
   const { data: stages = [] } = useQuery({ queryKey: ['catalog', 'crop_stages'], queryFn: async () => fetchCatalog('/api/v1/catalogs/crop-stages'), enabled: !!token })
-  const { data: soilTypes = [] } = useQuery({ queryKey: ['catalog', 'soil_types'], queryFn: async () => fetchCatalog('/api/v1/catalogs/soil-types'), enabled: !!token })
   const { data: problems = [] } = useQuery({ queryKey: ['catalog', 'problems'], queryFn: async () => fetchCatalog('/api/v1/catalogs/problems'), enabled: !!token })
 
-  const soilFallback = useMemo(() => (soilTypes && soilTypes.length ? soilTypes : ['Arcilloso', 'Franco', 'Arenoso']), [soilTypes])
-  const cropFallback = useMemo(() => (crops && crops.length ? crops : ['Tomate', 'Café', 'Maíz']), [crops])
-  const stageFallback = useMemo(() => (stages && stages.length ? stages : ['Germinación', 'Vegetativo', 'Floración']), [stages])
-  const problemFallback = useMemo(() => (problems && problems.length ? problems : ['Hongos', 'Plagas', 'Sequía']), [problems])
   const fincasFallback = useMemo(() => (fincas && fincas.length ? fincas : []), [fincas])
 
   useEffect(() => {
@@ -123,10 +126,8 @@ export function CaseWizardStep1() {
                   <label className="text-sm text-[#111827]">Cultivo</label>
                   <select {...register('crop')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
                     <option value="">Seleccione cultivo</option>
-                    {cropFallback.map((c: any) => (
-                      <option key={c.id ?? c} value={c.id ?? c}>
-                        {c.name ?? c}
-                      </option>
+                    {CROP_OPTIONS.map((c) => (
+                      <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
                 </div>
@@ -135,10 +136,8 @@ export function CaseWizardStep1() {
                   <label className="text-sm text-[#111827]">Etapa del cultivo</label>
                   <select {...register('crop_stage')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
                     <option value="">Seleccione etapa</option>
-                    {stageFallback.map((s: any) => (
-                      <option key={s.id ?? s} value={s.id ?? s}>
-                        {s.name ?? s}
-                      </option>
+                    {STAGE_OPTIONS.map((s) => (
+                      <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
                 </div>
@@ -158,10 +157,8 @@ export function CaseWizardStep1() {
                   <label className="text-sm text-[#111827]">Tipo de suelo</label>
                   <select {...register('soil_type')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
                     <option value="">Seleccione</option>
-                    {soilFallback.map((s: any) => (
-                      <option key={s.id ?? s} value={s.id ?? s}>
-                        {s.name ?? s}
-                      </option>
+                    {SOIL_OPTIONS.map((s) => (
+                      <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
                 </div>
@@ -170,9 +167,9 @@ export function CaseWizardStep1() {
                   <label className="text-sm text-[#111827]">Humedad</label>
                   <select {...register('humidity')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
                     <option value="">Seleccione</option>
-                    <option value="low">Baja</option>
-                    <option value="medium">Media</option>
-                    <option value="high">Alta</option>
+                    {HUMIDITY_OPTIONS.map((h) => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -180,9 +177,9 @@ export function CaseWizardStep1() {
                   <label className="text-sm text-[#111827]">Temperatura</label>
                   <select {...register('temperature')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
                     <option value="">Seleccione</option>
-                    <option value="<20">&lt;20°C</option>
-                    <option value="20-25">20-25°C</option>
-                    <option value=">25">&gt;25°C</option>
+                    {TEMPERATURE_OPTIONS.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -190,9 +187,9 @@ export function CaseWizardStep1() {
                   <label className="text-sm text-[#111827]">Calidad del agua</label>
                   <select {...register('water_quality')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
                     <option value="">Seleccione</option>
-                    <option value="good">Buena</option>
-                    <option value="regular">Regular</option>
-                    <option value="bad">Mala</option>
+                    {WATER_OPTIONS.map((w) => (
+                      <option key={w} value={w}>{w}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -206,10 +203,8 @@ export function CaseWizardStep1() {
                   <label className="text-sm text-[#111827]">Problema a resolver</label>
                   <select {...register('problem_to_solve')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
                     <option value="">Seleccione</option>
-                    {problemFallback.map((p: any) => (
-                      <option key={p.id ?? p} value={p.id ?? p}>
-                        {p.name ?? p}
-                      </option>
+                    {PROBLEM_OPTIONS.map((p) => (
+                      <option key={p} value={p}>{p}</option>
                     ))}
                   </select>
                 </div>

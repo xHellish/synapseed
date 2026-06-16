@@ -2,7 +2,7 @@
 // SynapSeed — Router
 // ============================================
 
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 
 import { ProtectedRoute } from '@/app/ProtectedRoute'
 import { LoginPage } from '@/features/auth/LoginPage'
@@ -24,6 +24,7 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
+      { path: '/cases', element: <Navigate to="/cases/wizard/step-1" replace /> },
       { path: '/cases/wizard/step-1', element: <CaseWizardStep1 /> },
       { path: '/cases/wizard/step-2', element: <CaseWizardConfirm /> },
       { path: '/recommendations/:id', element: <CaseWizardStep3 /> },
