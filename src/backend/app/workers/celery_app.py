@@ -19,7 +19,7 @@ celery_app = Celery(
     "synapseed",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=[],  # Las tareas se irán agregando en fases siguientes
+    include=["app.workers.tasks"],
 )
 
 # Configuración base

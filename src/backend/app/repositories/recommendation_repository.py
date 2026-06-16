@@ -130,7 +130,7 @@ class RecommendationRepository(BaseRepository[Recommendation]):
             {
                 "status": RecommendationStatus.COMPLETED,
                 "current_step": None,
-                "completed_at": datetime.now(timezone.utc),
+                "completed_at": datetime.now(timezone.utc).replace(tzinfo=None),
             },
         )
 

@@ -58,9 +58,21 @@ async def get_current_user(
     if credentials is None or not credentials.scheme.lower() == "bearer":
         raise HTTPException(status_code=401, detail="Autenticación requerida")
 
-    token_payload = decode_access_token(credentials.credentials)
-    user_id = token_payload.get("sub")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Token inválido")
+    from app.db.session import get_db_session
+    from app.services.auth_service import resolve_user_from_token, AuthError
 
-    return {"id": user_id, "identification": user_id, "name": "Demo User"}
+    async with get_db_session() as db:
+        try:
+            user = await resolve_user_from_token(db, credentials.credentials)
+            return {
+                "id": str(user.id),
+                "identification": user.identification,
+                "name": user.full_name,
+            }
+        except AuthError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token inválido o expirado",
+            ) from exc

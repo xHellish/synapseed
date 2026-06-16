@@ -57,6 +57,10 @@ async def request_recommendation(
         entity_id=rec.id,
     )
 
+    # Encolar la tarea asíncrona en Celery
+    from app.workers.tasks import generate_recommendation
+    generate_recommendation.delay(ticket_id)
+
     return {
         "ticket_id": ticket_id,
         "recommendation_id": rec.id,

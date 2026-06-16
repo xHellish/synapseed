@@ -188,6 +188,7 @@ async def get_user(access_token: str) -> SupabaseAuthUser:
         response = await client.get(f"{_auth_base_url()}/user", headers=headers)
 
     if response.status_code >= 400:
+        print(f"[DEBUG] Supabase /user validation failed: {response.status_code} - {response.text}")
         raise SupabaseAuthError(
             "Token inválido o expirado",
             status_code=401,
