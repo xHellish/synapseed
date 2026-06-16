@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { ClipboardCheck, MapPin, Menu, UserRound, X } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { ClipboardCheck, LogOut, MapPin, Menu, UserRound, X } from 'lucide-react'
+
+import { useAuthStore } from '@/stores/authStore'
 
 interface AppLayoutProps {
   children: ReactNode
@@ -15,7 +17,15 @@ const navItems = [
 export function AppLayout({ children }: AppLayoutProps) {
   const [open, setOpen] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
+  const logout = useAuthStore((state) => state.logout)
   const isActive = (href: string) => location.pathname === href || location.pathname.startsWith(`${href}/`)
+
+  const handleLogout = () => {
+    logout()
+    setOpen(false)
+    navigate('/login', { replace: true })
+  }
 
   return (
     <div className="min-h-screen bg-[#F7F8F2] text-[#111827]">
@@ -42,6 +52,17 @@ export function AppLayout({ children }: AppLayoutProps) {
               )
             })}
           </nav>
+
+          <div className="px-4 pb-8">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex h-[58px] w-full items-center gap-4 rounded-md px-8 text-2xl font-bold text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              <LogOut className="h-8 w-8" />
+              <span>Cerrar sesión</span>
+            </button>
+          </div>
         </aside>
 
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
@@ -76,6 +97,15 @@ export function AppLayout({ children }: AppLayoutProps) {
                     </Link>
                   )
                 })}
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold text-[#111827] hover:bg-[#F7F8F2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14532D]"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Cerrar sesión</span>
+                </button>
               </nav>
             )}
           </header>
