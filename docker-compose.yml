@@ -18,6 +18,30 @@
 services:
 
   # -----------------------------------------------------------
+  # PostgreSQL 16 + pgvector — DB local para desarrollo
+  # -----------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: synapseed-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: synapseed
+      POSTGRES_USER: synapseed
+      POSTGRES_PASSWORD: synapseed
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapseed -d synapseed"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - synapseed-net
+
+  # -----------------------------------------------------------
   # Redis 7 — broker de Celery + pub/sub SSE
   # -----------------------------------------------------------
   redis:
@@ -63,17 +87,13 @@ services:
       BACKEND_CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000","http://localhost:8000","http://127.0.0.1:5173","http://127.0.0.1:3000","http://127.0.0.1:8000"]'
 
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 
     ports:
       - "${BACKEND_PORT:-8000}:8000"
-
-    # Montamos solo el código fuente y alembic para hot-reload
-    volumes:
-      - ./src/backend/app:/app/app
-      - ./src/backend/alembic:/app/alembic
-      - ./src/backend/alembic.ini:/app/alembic.ini
 
     # Corre migraciones primero, luego levanta uvicorn con reload
     command: >
@@ -113,9 +133,6 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
-
-    volumes:
-      - ./src/backend/app:/app/app
 
     networks:
       - synapseed-net
@@ -161,6 +178,8 @@ services:
 # Volúmenes persistentes
 # ============================================
 volumes:
+  postgres_data:
+    driver: local
   redis_data:
     driver: local
   frontend_node_modules:

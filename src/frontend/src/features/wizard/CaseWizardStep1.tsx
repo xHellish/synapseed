@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { useWatch } from 'react-hook-form'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import axios from 'axios'
 import { useQuery } from '@tanstack/react-query'
@@ -9,230 +8,267 @@ import { useNavigate } from 'react-router-dom'
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { useWizardStore } from '@/stores/wizardStore'
+import { CaseStepper, PageHeader, Panel, SelectField, SynapButton, TextField } from '@/components/ui/prototype'
+import {
+  CROP_OPTIONS,
+  HUMIDITY_OPTIONS,
+  PROBLEM_OPTIONS,
+  SOIL_OPTIONS,
+  STAGE_OPTIONS,
+  TEMPERATURE_OPTIONS,
+  WATER_OPTIONS,
+} from './constants'
 import { caseStep1Schema } from './schemas'
 import type { CaseStep1Form } from './schemas'
 
-const TEMPERATURE_OPTIONS = ['Menos de 10°C', '10°C - 15°C', '15°C - 20°C', '20°C - 25°C', '25°C - 30°C', 'Más de 30°C']
-const HUMIDITY_OPTIONS = ['Muy baja', 'Baja', 'Media', 'Alta', 'Muy alta']
-const SOIL_OPTIONS = ['Franco', 'Arcilloso', 'Franco Arcilloso', 'Arenoso', 'Volcánico', 'Limoso']
-const WATER_OPTIONS = ['Potable', 'Regular', 'Salina', 'Buena', 'Contaminada', 'Desconocida']
-const CROP_OPTIONS = ['Tomate', 'Papa', 'Lechuga', 'Arroz', 'Brocoli', 'Pepino']
-const STAGE_OPTIONS = ['Germinación', 'Plántula', 'Crecimiento (Fase vegetativa)', 'Floración', 'Fructificación y Madurez']
-const PROBLEM_OPTIONS = ['Hongo en las hojas', 'Hongos en los tallos', 'Plagas', 'Deficiencia de nutrientes', 'Enfermedad en raiz']
-
-function Stepper({ step }: { step: number }) {
-  const steps = ['Datos del caso', 'Confirmación', 'Recomendaciones', 'Proveedores']
-  return (
-    <div className="mb-6 flex w-full items-center gap-4">
-      {steps.map((label, i) => {
-        const idx = i + 1
-        const active = idx === step
-        const done = idx < step
-        return (
-          <div key={label} className="flex items-center gap-3">
-            <div
-              className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
-                done || active ? 'bg-[#16A34A] text-white' : 'border border-[#E5E7EB] bg-white text-[#6B7280]'
-              }`}
-            >
-              {idx}
-            </div>
-            <div className="text-sm">{label}</div>
-            {i < steps.length - 1 && <div className={`h-0.5 w-12 ${done ? 'bg-[#16A34A]' : 'bg-[#E5E7EB]'}`} />}
-          </div>
-        )
-      })}
-    </div>
-  )
+interface ZoneOption {
+  id: string | number
+  name?: string
+  nombre?: string
 }
 
 export function CaseWizardStep1() {
-  const token = useAuthStore((s) => s.token)
-  const wizardStep = useWizardStore((s) => s.step)
-  const setStep = useWizardStore((s) => s.setStep)
-  const update = useWizardStore((s) => s.update)
+  const token = useAuthStore((state) => state.token)
+  const setStep = useWizardStore((state) => state.setStep)
+  const update = useWizardStore((state) => state.update)
   const navigate = useNavigate()
 
-  // form
-  const { register, handleSubmit, reset, control } = useForm<CaseStep1Form>({ resolver: zodResolver(caseStep1Schema) })
+  const { register, handleSubmit, reset, control } = useForm<CaseStep1Form>({
+    resolver: zodResolver(caseStep1Schema),
+    defaultValues: {
+      finca_id: '',
+      finca_name: '',
+      crop: '',
+      crop_stage: '',
+      affected_area: undefined,
+      soil_type: '',
+      humidity: '',
+      temperature: '',
+      water_quality: '',
+      problem_to_solve: '',
+      last_agrochemical: '',
+      max_budget_per_liter: 0,
+    },
+  })
 
-  // Watch finca_id to resolve its display name in real time
   const watchedFincaId = useWatch({ control, name: 'finca_id' })
 
-  // fetch catalogs
-  const fetchCatalog = async (url: string) => {
-    const res = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
-    return res.data
-  }
+  const { data: fincas = [] } = useQuery<ZoneOption[]>({
+    queryKey: ['user', 'zones'],
+    queryFn: async () => {
+      const response = await axios.get('/api/v1/zones', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      return response.data
+    },
+    enabled: !!token,
+  })
 
-  const { data: fincas = [] } = useQuery({ queryKey: ['user', 'zones'], queryFn: async () => fetchCatalog('/api/v1/zones'), enabled: !!token })
-  const { data: crops = [] } = useQuery({ queryKey: ['catalog', 'crops'], queryFn: async () => fetchCatalog('/api/v1/catalogs/crops'), enabled: !!token })
-  const { data: stages = [] } = useQuery({ queryKey: ['catalog', 'crop_stages'], queryFn: async () => fetchCatalog('/api/v1/catalogs/crop-stages'), enabled: !!token })
-  const { data: problems = [] } = useQuery({ queryKey: ['catalog', 'problems'], queryFn: async () => fetchCatalog('/api/v1/catalogs/problems'), enabled: !!token })
-
-  const fincasFallback = useMemo(() => (fincas && fincas.length ? fincas : []), [fincas])
+  const fincaOptions = useMemo(
+    () =>
+      fincas.map((finca) => ({
+        value: String(finca.id),
+        label: finca.name ?? finca.nombre ?? String(finca.id),
+      })),
+    [fincas],
+  )
 
   useEffect(() => {
-    // populate defaults from store if present
+    setStep(1)
     const data = useWizardStore.getState().data
-    if (data) {
-      reset({
-        finca_id: data.finca_id ?? '',
-        finca_name: data.finca_name ?? '',
-        crop: data.crop ?? '',
-        crop_stage: data.crop_stage ?? '',
-        affected_area: data.affected_area ?? undefined,
-        soil_type: data.soil_type ?? '',
-        humidity: data.humidity ?? '',
-        temperature: data.temperature ?? '',
-        water_quality: data.water_quality ?? '',
-        problem_to_solve: data.problem_to_solve ?? '',
-        last_agrochemical: data.last_agrochemical ?? '',
-        max_budget_per_liter: data.max_budget_per_liter ?? 0,
-      })
-    }
-  }, [reset])
+    reset({
+      finca_id: data.finca_id ?? '',
+      finca_name: data.finca_name ?? '',
+      crop: data.crop ?? '',
+      crop_stage: data.crop_stage ?? '',
+      affected_area: data.affected_area ?? undefined,
+      soil_type: data.soil_type ?? '',
+      humidity: data.humidity ?? '',
+      temperature: data.temperature ?? '',
+      water_quality: data.water_quality ?? '',
+      problem_to_solve: data.problem_to_solve ?? '',
+      last_agrochemical: data.last_agrochemical ?? '',
+      max_budget_per_liter: data.max_budget_per_liter ?? 0,
+    })
+  }, [reset, setStep])
 
   const onSubmit = (values: CaseStep1Form) => {
-    // Resolve the finca name from the loaded list and persist into store
-    const selectedFinca = fincasFallback.find((f: any) => String(f.id) === String(values.finca_id))
-    update({ ...values, finca_name: selectedFinca?.name ?? values.finca_id })
+    const selectedFinca = fincaOptions.find((finca) => finca.value === String(values.finca_id))
+    update({ ...values, finca_name: selectedFinca?.label ?? values.finca_id })
     setStep(2)
     navigate('/cases/wizard/step-2')
   }
 
   return (
     <AppLayout>
-      <section className="mx-auto max-w-4xl">
-        <Stepper step={wizardStep} />
+      <section className="max-w-[1140px]">
+        <PageHeader
+          title="Explique su caso"
+          subtitle="Complete la información de su finca para generar una recomendación personalizada"
+          className="mb-5"
+        />
+        <CaseStepper step={1} />
 
-        <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-semibold text-[#111827]">Explique su caso</h1>
-          <p className="mt-1 text-sm text-[#6B7280]">Complete la información para que SynapSeed entienda su situación.</p>
-
-          <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-6">
-            {/* Información del cultivo */}
-            <div className="space-y-3">
-              <h2 className="text-sm font-medium text-[#111827]">Información del cultivo</h2>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm text-[#111827]">Finca</label>
-                  <select {...register('finca_id')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
-                    <option value="">Seleccione finca</option>
-                    {fincasFallback.map((f: any) => (
-                      <option key={f.id} value={f.id}>
-                        {f.name || f.nombre || f.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm text-[#111827]">Cultivo</label>
-                  <select {...register('crop')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
-                    <option value="">Seleccione cultivo</option>
-                    {CROP_OPTIONS.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm text-[#111827]">Etapa del cultivo</label>
-                  <select {...register('crop_stage')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
-                    <option value="">Seleccione etapa</option>
-                    {STAGE_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm text-[#111827]">Área afectada (%)</label>
-                  <input type="number" {...register('affected_area', { valueAsNumber: true })} placeholder="20" className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm" />
-                </div>
+        <Panel className="px-10 py-8">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+            <div>
+              <h2 className="border-b border-[#9CA3AF] pb-2 text-2xl font-semibold text-[#111827]">
+                Información del cultivo:
+              </h2>
+              <div className="mt-5 grid gap-x-10 gap-y-5 md:grid-cols-2">
+                <Controller
+                  control={control}
+                  name="finca_id"
+                  render={({ field, fieldState }) => (
+                    <SelectField
+                      label="Finca"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      options={fincaOptions}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="crop"
+                  render={({ field, fieldState }) => (
+                    <SelectField
+                      label="Cultivo"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      options={CROP_OPTIONS}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="crop_stage"
+                  render={({ field, fieldState }) => (
+                    <SelectField
+                      label="Etapa del cultivo"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      options={STAGE_OPTIONS}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+                <TextField
+                  label="Área afectada (%)"
+                  type="number"
+                  placeholder="20"
+                  {...register('affected_area', {
+                    setValueAs: (value) => (value === '' ? undefined : Number(value)),
+                  })}
+                />
               </div>
             </div>
 
-            {/* Condiciones del ambiente */}
-            <div className="space-y-3">
-              <h2 className="text-sm font-medium text-[#111827]">Condiciones del ambiente</h2>
-              <div className="grid gap-4 sm:grid-cols-4">
-                <div className="space-y-2">
-                  <label className="text-sm text-[#111827]">Tipo de suelo</label>
-                  <select {...register('soil_type')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
-                    <option value="">Seleccione</option>
-                    {SOIL_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm text-[#111827]">Humedad</label>
-                  <select {...register('humidity')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
-                    <option value="">Seleccione</option>
-                    {HUMIDITY_OPTIONS.map((h) => (
-                      <option key={h} value={h}>{h}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm text-[#111827]">Temperatura</label>
-                  <select {...register('temperature')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
-                    <option value="">Seleccione</option>
-                    {TEMPERATURE_OPTIONS.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm text-[#111827]">Calidad del agua</label>
-                  <select {...register('water_quality')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
-                    <option value="">Seleccione</option>
-                    {WATER_OPTIONS.map((w) => (
-                      <option key={w} value={w}>{w}</option>
-                    ))}
-                  </select>
-                </div>
+            <div>
+              <h2 className="border-b border-[#9CA3AF] pb-2 text-2xl font-semibold text-[#111827]">
+                Condiciones del ambiente:
+              </h2>
+              <div className="mt-5 grid gap-x-10 gap-y-5 md:grid-cols-2">
+                <Controller
+                  control={control}
+                  name="soil_type"
+                  render={({ field, fieldState }) => (
+                    <SelectField
+                      label="Tipo de suelo"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      options={SOIL_OPTIONS}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="humidity"
+                  render={({ field, fieldState }) => (
+                    <SelectField
+                      label="Humedad"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      options={HUMIDITY_OPTIONS}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="temperature"
+                  render={({ field, fieldState }) => (
+                    <SelectField
+                      label="Temperatura"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      options={TEMPERATURE_OPTIONS}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="water_quality"
+                  render={({ field, fieldState }) => (
+                    <SelectField
+                      label="Calidad del agua"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      options={WATER_OPTIONS}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
               </div>
             </div>
 
-            {/* Objetivo y restricciones */}
-            <div className="space-y-3">
-              <h2 className="text-sm font-medium text-[#111827]">Objetivo y restricciones</h2>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <label className="text-sm text-[#111827]">Problema a resolver</label>
-                  <select {...register('problem_to_solve')} className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm">
-                    <option value="">Seleccione</option>
-                    {PROBLEM_OPTIONS.map((p) => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm text-[#111827]">Último producto usado</label>
-                  <input {...register('last_agrochemical')} placeholder="Ej: Fungicida A" className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm" />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm text-[#111827]">Presupuesto máximo por litro ₡</label>
-                  <input type="number" {...register('max_budget_per_liter', { valueAsNumber: true })} placeholder="5 000" className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm" />
-                </div>
+            <div>
+              <h2 className="border-b border-[#9CA3AF] pb-2 text-2xl font-semibold text-[#111827]">
+                Objetivo y restricciones:
+              </h2>
+              <div className="mt-5 grid gap-x-10 gap-y-5 md:grid-cols-2">
+                <Controller
+                  control={control}
+                  name="problem_to_solve"
+                  render={({ field, fieldState }) => (
+                    <SelectField
+                      label="Problema a resolver"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      options={PROBLEM_OPTIONS}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+                <TextField
+                  label="Último producto usado"
+                  type="text"
+                  placeholder="Escriba el nombre del producto"
+                  {...register('last_agrochemical')}
+                />
+                <TextField
+                  label="Presupuesto máximo por litro ₡"
+                  type="text"
+                  placeholder="5 000"
+                  {...register('max_budget_per_liter', {
+                    setValueAs: (value) => Number(String(value).replace(/\D/g, '')) || 0,
+                  })}
+                />
               </div>
             </div>
 
-            <div className="flex justify-end">
-              <button type="submit" className="rounded-xl bg-[#16A34A] px-4 py-2 text-sm font-semibold text-white hover:bg-[#14532D]">
+            <div className="flex justify-end border-t border-[#9CA3AF] pt-6">
+              <SynapButton type="submit" className="min-w-[220px]">
                 Continuar
-              </button>
+              </SynapButton>
             </div>
           </form>
-        </div>
+        </Panel>
+        <input type="hidden" value={watchedFincaId ?? ''} readOnly />
       </section>
     </AppLayout>
   )

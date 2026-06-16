@@ -1,13 +1,15 @@
-/// <reference types="vitest/config" />
-import { defineConfig } from 'vite'
+import { defineConfig, type UserConfig } from 'vite'
+import type { InlineConfig } from 'vitest'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 
+type ViteConfig = UserConfig & { test: InlineConfig }
+
 // ============================================
 // SynapSeed — Vite + React + TS configuration
 // ============================================
-export default defineConfig({
+const config = {
   plugins: [react(), tailwindcss()],
 
   resolve: {
@@ -64,4 +66,6 @@ export default defineConfig({
       ],
     },
   },
-} as any)
+} satisfies ViteConfig
+
+export default defineConfig(config)

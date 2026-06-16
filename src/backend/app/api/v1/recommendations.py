@@ -122,19 +122,29 @@ async def detail(
         entity_id=rec.id,
     )
 
-    products = [
-        {
-            "rank": p.rank,
-            "product_id": p.product_id,
-            "nombre_comercial": p.product.nombre_comercial if p.product else None,
-            "justification": p.justification,
-            "dosis": p.dosis,
-            "precio_estimado": float(p.precio_estimado) if p.precio_estimado else None,
-            "toxicidad": p.toxicidad,
-            "intervalo_seguridad": p.intervalo_seguridad,
-        }
-        for p in rec.products
-    ]
+    products = []
+    for p in rec.products:
+        product = p.product
+        products.append(
+            {
+                "rank": p.rank,
+                "product_id": p.product_id,
+                "nombre_comercial": product.nombre_comercial if product else None,
+                "justification": p.justification,
+                "dosis": p.dosis,
+                "precio_estimado": float(p.precio_estimado) if p.precio_estimado else None,
+                "toxicidad": p.toxicidad,
+                "intervalo_seguridad": p.intervalo_seguridad,
+                "categoria": product.categoria.value if product and product.categoria else None,
+                "cultivo_objetivo": product.cultivo_objetivo if product else None,
+                "problema_objetivo": product.problema_objetivo if product else None,
+            }
+        )
+
+    try:
+        max_budget_per_liter = float(rec.budget_range) if rec.budget_range else None
+    except ValueError:
+        max_budget_per_liter = None
 
     return {
         "id": rec.id,
@@ -142,6 +152,8 @@ async def detail(
         "crop": rec.crop,
         "crop_stage": rec.crop_stage,
         "problem": rec.problem,
+        "budget_range": rec.budget_range,
+        "max_budget_per_liter": max_budget_per_liter,
         "status": rec.status.value,
         "current_step": rec.current_step,
         "error_message": rec.error_message,
@@ -181,6 +193,10 @@ async def providers(
                     {
                         "id": d.id,
                         "nombre": d.nombre,
+                        "product_id": rec_product.product_id,
+                        "producto_asociado": rec_product.product.nombre_comercial
+                        if rec_product.product
+                        else None,
                         "correo": d.correo,
                         "telefono": d.telefono,
                         "ubicacion": d.ubicacion,

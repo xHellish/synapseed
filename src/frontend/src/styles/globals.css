@@ -30,16 +30,16 @@
   /* --- Semánticos --- */
   --color-success: #22c55e;
   --color-warning: #f59e0b;
-  --color-error: #ef4444;
+  --color-error: #dc2626;
   --color-info: #3b82f6;
 
   /* --- Neutrales --- */
-  --color-background: #ffffff;
-  --color-foreground: #0f172a;
-  --color-muted: #f1f5f9;
-  --color-muted-foreground: #64748b;
-  --color-border: #e2e8f0;
-  --color-input: #e2e8f0;
+  --color-background: #f7f8f2;
+  --color-foreground: #111827;
+  --color-muted: #f7f8f2;
+  --color-muted-foreground: #6b7280;
+  --color-border: #e5e7eb;
+  --color-input: #9ca3af;
   --color-ring: #16a34a;
 
   /* --- Tipografía --- */
@@ -71,11 +71,18 @@ body,
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background-color: var(--color-background);
+  background-color: #f7f8f2;
   color: var(--color-foreground);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 /* --- Scrollbar discreto --- */
