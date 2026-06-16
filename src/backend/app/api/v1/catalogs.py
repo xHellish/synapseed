@@ -149,3 +149,24 @@ async def search_products(
         }
         for p in items
     ]
+
+
+_HUMIDITY = ["Muy baja", "Baja", "Media", "Alta", "Muy alta"]
+_TEMPERATURE = ["Menos de 10°C", "10°C - 15°C", "15°C - 20°C", "20°C - 25°C", "25°C - 30°C", "Más de 30°C"]
+_WATER_QUALITY = ["Potable", "Regular", "Salina", "Buena", "Contaminada", "Desconocida"]
+
+
+@router.get("/humidity", summary="Niveles de humedad")
+async def list_humidity() -> list[str]:
+    return _HUMIDITY
+
+
+@router.get("/temperature", summary="Rangos de temperatura")
+async def list_temperature() -> list[str]:
+    return _TEMPERATURE
+
+
+@router.get("/water-quality", summary="Calidades de agua")
+async def list_water_quality() -> list[str]:
+    return _WATER_QUALITY
+

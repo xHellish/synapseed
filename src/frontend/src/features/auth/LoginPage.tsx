@@ -50,18 +50,15 @@ export function LoginPage() {
 
   const onSubmit = async (values: LoginFormValues) => {
     try {
-      // Mock para desarrollo sin backend
-      // Cuando haya backend, descomentar las líneas de axios.post
-      // y eliminar el bloque mock
-      const access_token = 'mock-token-12345'
-      const user = {
-        id: '1',
-        identification: '1234567890',
-        full_name: 'Usuario de Prueba',
-        email: 'usuario@prueba.com',
-      }
+      const rawIdentification = values.identification.replace(/\s/g, '')
+      const response = await axios.post('/api/v1/auth/login', {
+        identification: rawIdentification,
+        password: values.password,
+      })
 
+      const { access_token, user } = response.data
       login(access_token, user)
+
       setToastTitle('Inicio de sesión exitoso')
       setToastDescription('Redirigiendo a tu zona protegida...')
       setToastOpen(true)

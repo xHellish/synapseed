@@ -11,7 +11,167 @@ from app.repositories import AuditRepository, ZoneRepository
 router = APIRouter(prefix="/zones", tags=["zones"])
 
 
-@router.get("/", summary="Listar zonas del usuario")
+COORDINATES_TO_LOCATION = {
+    (9.86, -83.92): "Cartago, Costa Rica",
+    (10.02, -84.21): "Alajuela, Costa Rica",
+    (10.00, -84.12): "Heredia, Costa Rica",
+    (9.93, -84.09): "San José, Costa Rica",
+    (10.60, -85.40): "Guanacaste, Costa Rica",
+    (9.98, -84.83): "Puntarenas, Costa Rica",
+    (10.00, -83.03): "Limón, Costa Rica",
+}
+
+HUMIDITY_STR_TO_VAL = {
+    "muy baja": 20.0,
+    "baja": 40.0,
+    "media": 60.0,
+    "alta": 80.0,
+    "muy alta": 95.0,
+}
+
+TEMP_STR_TO_VAL = {
+    "menos de 10°c": 8.0,
+    "menos de 10c": 8.0,
+    "10°c - 15°c": 12.5,
+    "10c - 15c": 12.5,
+    "15°c - 20°c": 17.5,
+    "15c - 20c": 17.5,
+    "20°c - 25°c": 22.5,
+    "20c - 25c": 22.5,
+    "25°c - 30°c": 27.5,
+    "25c - 30c": 27.5,
+    "más de 30°c": 35.0,
+    "mas de 30c": 35.0,
+}
+
+
+def map_location_to_coords(location_str: str | None) -> tuple[float | None, float | None]:
+    if not location_str:
+        return None, None
+    loc_lower = location_str.lower()
+    if "cartago" in loc_lower:
+        return 9.86, -83.92
+    if "alajuela" in loc_lower:
+        return 10.02, -84.21
+    if "heredia" in loc_lower:
+        return 10.00, -84.12
+    if "san josé" in loc_lower or "san jose" in loc_lower:
+        return 9.93, -84.09
+    if "guanacaste" in loc_lower:
+        return 10.60, -85.40
+    if "puntarenas" in loc_lower:
+        return 9.98, -84.83
+    if "limón" in loc_lower or "limon" in loc_lower:
+        return 10.00, -83.03
+    return 9.93, -84.09
+
+
+def map_coords_to_location(lat: float | None, lon: float | None) -> str:
+    if lat is None or lon is None:
+        return "Costa Rica"
+    closest_dist = float("inf")
+    closest_name = "Costa Rica"
+    for (plat, plon), name in COORDINATES_TO_LOCATION.items():
+        dist = (float(lat) - plat) ** 2 + (float(lon) - plon) ** 2
+        if dist < closest_dist:
+            closest_dist = dist
+            closest_name = name
+    if closest_dist < 0.05:
+        return closest_name
+    return f"Costa Rica ({float(lat):.4f}, {float(lon):.4f})"
+
+
+def map_humidity_to_val(hum_str: str | float | None) -> float | None:
+    if hum_str is None:
+        return None
+    if isinstance(hum_str, (int, float)):
+        return float(hum_str)
+    try:
+        return float(hum_str)
+    except ValueError:
+        pass
+    cleaned = hum_str.lower().strip()
+    return HUMIDITY_STR_TO_VAL.get(cleaned, None)
+
+
+def map_val_to_humidity_str(hum_val: float | None) -> str:
+    if hum_val is None:
+        return "Media"
+    val = float(hum_val)
+    if val <= 30.0:
+        return "Muy baja"
+    if val <= 50.0:
+        return "Baja"
+    if val <= 70.0:
+        return "Media"
+    if val <= 90.0:
+        return "Alta"
+    return "Muy alta"
+
+
+def map_temp_to_val(temp_str: str | float | None) -> float | None:
+    if temp_str is None:
+        return None
+    if isinstance(temp_str, (int, float)):
+        return float(temp_str)
+    try:
+        return float(temp_str)
+    except ValueError:
+        pass
+    cleaned = temp_str.lower().strip()
+    if cleaned in TEMP_STR_TO_VAL:
+        return TEMP_STR_TO_VAL[cleaned]
+    cleaned_alt = cleaned.replace(" ", "")
+    for key, val in TEMP_STR_TO_VAL.items():
+        if key.replace(" ", "") == cleaned_alt:
+            return val
+    return None
+
+
+def map_val_to_temp_str(temp_val: float | None) -> str:
+    if temp_val is None:
+        return "20°C - 25°C"
+    val = float(temp_val)
+    if val < 10.0:
+        return "Menos de 10°C"
+    if val < 15.0:
+        return "10°C - 15°C"
+    if val < 20.0:
+        return "15°C - 20°C"
+    if val < 25.0:
+        return "20°C - 25°C"
+    if val < 30.0:
+        return "25°C - 30°C"
+    return "Más de 30°C"
+
+
+def clean_payload(payload: dict) -> dict:
+    """Prepara y limpia el payload recibido para evitar errores de ORM/Base de datos."""
+    location_str = payload.pop("location", None)
+    lat, lon = map_location_to_coords(location_str)
+
+    cleaned = {}
+    if "name" in payload:
+        cleaned["name"] = payload["name"]
+    if "soil_type" in payload:
+        cleaned["soil_type"] = payload["soil_type"]
+    if "water_quality" in payload:
+        cleaned["water_quality"] = payload["water_quality"]
+
+    # Coordenadas
+    cleaned["latitude"] = payload.get("latitude", lat)
+    cleaned["longitude"] = payload.get("longitude", lon)
+
+    # Conversión de strings de selección a valores numéricos
+    if "humidity" in payload:
+        cleaned["humidity"] = map_humidity_to_val(payload["humidity"])
+    if "temperature" in payload:
+        cleaned["temperature"] = map_temp_to_val(payload["temperature"])
+
+    return cleaned
+
+
+@router.get("", summary="Listar zonas del usuario")
 async def list_zones(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
@@ -24,9 +184,10 @@ async def list_zones(
         {
             "id": z.id,
             "name": z.name,
+            "location": map_coords_to_location(z.latitude, z.longitude),
             "soil_type": z.soil_type,
-            "humidity": float(z.humidity) if z.humidity is not None else None,
-            "temperature": float(z.temperature) if z.temperature is not None else None,
+            "humidity": map_val_to_humidity_str(z.humidity),
+            "temperature": map_val_to_temp_str(z.temperature),
             "water_quality": z.water_quality,
             "latitude": float(z.latitude) if z.latitude is not None else None,
             "longitude": float(z.longitude) if z.longitude is not None else None,
@@ -51,9 +212,10 @@ async def get_zone(
     return {
         "id": zone.id,
         "name": zone.name,
+        "location": map_coords_to_location(zone.latitude, zone.longitude),
         "soil_type": zone.soil_type,
-        "humidity": float(zone.humidity) if zone.humidity is not None else None,
-        "temperature": float(zone.temperature) if zone.temperature is not None else None,
+        "humidity": map_val_to_humidity_str(zone.humidity),
+        "temperature": map_val_to_temp_str(zone.temperature),
         "water_quality": zone.water_quality,
         "latitude": float(zone.latitude) if zone.latitude is not None else None,
         "longitude": float(zone.longitude) if zone.longitude is not None else None,
@@ -62,7 +224,7 @@ async def get_zone(
     }
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, summary="Crear una zona")
+@router.post("", status_code=status.HTTP_201_CREATED, summary="Crear una zona")
 async def create_zone(
     payload: dict,
     current_user: dict = Depends(get_current_user),
@@ -85,7 +247,10 @@ async def create_zone(
             detail=f"Ya tenés una zona llamada '{name}'",
         )
 
-    zone = await zones.create_zone(int(current_user["id"]), payload)
+    # Sanitizar y mapear el payload
+    cleaned = clean_payload(payload)
+
+    zone = await zones.create_zone(int(current_user["id"]), cleaned)
 
     await audit.log(
         action=AuditAction.CREATE,
@@ -111,7 +276,10 @@ async def update_zone(
     if not zone:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zona no encontrada")
 
-    updated = await zones.update_zone(zone, payload)
+    # Sanitizar y mapear el payload
+    cleaned = clean_payload(payload)
+
+    updated = await zones.update_zone(zone, cleaned)
 
     await audit.log(
         action=AuditAction.UPDATE,
@@ -146,3 +314,4 @@ async def delete_zone(
     await zones.delete_zone(zone)
 
     return {"message": "Zona eliminada", "zone_id": zone_id}
+

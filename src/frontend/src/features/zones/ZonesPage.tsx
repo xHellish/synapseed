@@ -277,7 +277,10 @@ export function ZonesPage() {
           <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
             <Dialog.Portal>
               <Dialog.Overlay className="fixed inset-0 bg-black/30" />
-              <Dialog.Content className="fixed left-1/2 top-1/2 w-[min(96vw,600px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-lg">
+              <Dialog.Content
+                className="fixed left-1/2 top-1/2 w-[min(96vw,600px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-lg"
+                aria-describedby={undefined}
+              >
                 <Dialog.Title className="text-lg font-semibold">{editingZone ? 'Editar zona' : 'Añadir zona'}</Dialog.Title>
                 <form onSubmit={handleSubmit} className="mt-4 space-y-3">
                   <div className="grid gap-3 md:grid-cols-2">

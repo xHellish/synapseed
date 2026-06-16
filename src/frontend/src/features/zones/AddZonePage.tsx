@@ -82,15 +82,8 @@ export function AddZonePage() {
 
   const addMutation = useMutation({
     mutationFn: async (payload: AddZoneForm) => {
-      // Mock para desarrollo sin backend
-      // Descomentar cuando haya backend:
-      // const res = await axios.post('/api/v1/zones', payload, { headers: { Authorization: `Bearer ${token}` } })
-      // return res.data
-
-      // --- Mock ---
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      const mockZone = { id: Date.now().toString(), ...payload }
-      return mockZone
+      const res = await axios.post('/api/v1/zones', payload, { headers: { Authorization: `Bearer ${token}` } })
+      return res.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zones'] })
