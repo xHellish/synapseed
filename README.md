@@ -112,19 +112,17 @@ docker compose up -d --build
 docker compose logs -f backend worker
 ```
 
-Esto levanta 5 servicios:
+Esto levanta 4 servicios locales (la base de datos es Supabase, externa):
 
 | Servicio | Puerto | URL |
 |---|---|---|
 | **frontend** (Vite) | 5173 | http://localhost:5173 |
 | **backend** (FastAPI) | 8000 | http://localhost:8000 |
 | **backend** (OpenAPI docs) | 8000 | http://localhost:8000/docs |
-| **worker** (Celery) | — | — |
-| **postgres** (pgvector) | 5432 | `localhost:5432` |
+| **worker** (Celery) | - | - |
 | **redis** | 6379 | `localhost:6379` |
 
-> El contenedor `backend` ejecuta automáticamente `alembic upgrade head` al arrancar,
-> aplicando las migraciones de la base de datos.
+> El contenedor `backend` ejecuta `alembic upgrade head` al arrancar para aplicar las migraciones pendientes en Supabase.
 
 ### 4. Verificar que todo funciona
 
@@ -223,10 +221,9 @@ Convenciones:
 
 ## 📚 Documentación adicional
 
-- [`Docs/lista_de_tareas.md`](Docs/lista_de_tareas.md) — lista de tareas del proyecto
-- [`Docs/Spec_validada.md`](Docs/Spec_validada.md) — especificación validada del MVP
-- [`Docs/implementation_plan_1.md`](Docs/implementation_plan_1.md) — plan de implementación integral
-- [`Docs/AgentOrchs.md`](Docs/AgentOrchs.md) — orquestación de los 4 agentes IA
+- [`Docs/Decisiones_de_Diseno.md`](Docs/Decisiones_de_Diseno.md) — decisiones de arquitectura y banco de preguntas para la defensa
+- [`Docs/Spec_validada.md`](Docs/Spec_validada.md) — especificacion validada del MVP
+- [`Docs/AgentOrchs.md`](Docs/AgentOrchs.md) — orquestacion de los 4 agentes IA
 - [`Docs/database/schema.dbml`](Docs/database/schema.dbml) — esquema DBML
 - [`Docs/database/create_tables.sql`](Docs/database/create_tables.sql) — DDL inicial
 

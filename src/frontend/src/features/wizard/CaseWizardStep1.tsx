@@ -36,6 +36,9 @@ interface CropOption {
   name: string
 }
 
+// Radix Select no admite value="" — usamos un centinela para "Sin finca"
+const NO_FINCA = '__none__'
+
 export function CaseWizardStep1() {
   const token = useAuthStore((state) => state.token)
   const setStep = useWizardStore((state) => state.setStep)
@@ -83,11 +86,13 @@ export function CaseWizardStep1() {
   })
 
   const fincaOptions = useMemo(
-    () =>
-      fincas.map((finca) => ({
+    () => [
+      { value: NO_FINCA, label: 'Sin finca (ingresar datos manualmente)' },
+      ...fincas.map((finca) => ({
         value: String(finca.id),
         label: finca.name ?? finca.nombre ?? String(finca.id),
       })),
+    ],
     [fincas],
   )
 
@@ -131,8 +136,13 @@ export function CaseWizardStep1() {
   }, [reset, setStep])
 
   const onSubmit = (values: CaseStep1Form) => {
+    const isNoFinca = !values.finca_id || values.finca_id === NO_FINCA
     const foundFinca = fincaOptions.find((f) => f.value === String(values.finca_id))
-    update({ ...values, finca_name: foundFinca?.label ?? values.finca_id })
+    update({
+      ...values,
+      finca_id: isNoFinca ? '' : values.finca_id,
+      finca_name: isNoFinca ? 'Sin finca' : (foundFinca?.label ?? values.finca_id),
+    })
     setStep(2)
     navigate('/cases/wizard/step-2')
   }

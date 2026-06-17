@@ -15,9 +15,7 @@ class DistributorRepository(BaseRepository[Distributor]):
     def __init__(self, db: AsyncSession) -> None:
         super().__init__(db, Distributor)
 
-    # ------------------------------------------------------------------
-    # Búsquedas específicas
-    # ------------------------------------------------------------------
+    # Busquedas especificas
 
     async def get_all_filtered(
         self,
@@ -81,9 +79,7 @@ class DistributorRepository(BaseRepository[Distributor]):
         )
         return result.scalars().all()
 
-    # ------------------------------------------------------------------
-    # Asociación Product ↔ Distributor
-    # ------------------------------------------------------------------
+    # Asociacion Product-Distributor
 
     async def link_product(
         self, product_id: int, distributor_id: int
@@ -122,9 +118,7 @@ class DistributorRepository(BaseRepository[Distributor]):
         await self._db.commit()
         return True
 
-    # ------------------------------------------------------------------
     # Escritura
-    # ------------------------------------------------------------------
 
     async def create_distributor(self, data: dict[str, Any]) -> Distributor:
         # Crea un nuevo distribuidor.

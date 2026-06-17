@@ -20,9 +20,7 @@ class RecommendationRepository(BaseRepository[Recommendation]):
     def __init__(self, db: AsyncSession) -> None:
         super().__init__(db, Recommendation)
 
-    # ------------------------------------------------------------------
-    # Búsquedas específicas
-    # ------------------------------------------------------------------
+    # Busquedas especificas
 
     async def get_by_ticket_id(self, ticket_id: str) -> Recommendation | None:
         # Retorna la recomendación por su ticket_id único.
@@ -97,9 +95,7 @@ class RecommendationRepository(BaseRepository[Recommendation]):
         result = await self._db.execute(query)
         return result.scalar_one()
 
-    # ------------------------------------------------------------------
     # Escritura especializada
-    # ------------------------------------------------------------------
 
     async def create_recommendation(self, data: dict[str, Any]) -> Recommendation:
         # Crea una nueva recomendación (estado inicial: PENDING).
@@ -146,9 +142,7 @@ class RecommendationRepository(BaseRepository[Recommendation]):
             },
         )
 
-    # ------------------------------------------------------------------
     # RecommendationProduct
-    # ------------------------------------------------------------------
 
     async def add_product(
         self,

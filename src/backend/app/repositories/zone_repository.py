@@ -15,9 +15,7 @@ class ZoneRepository(BaseRepository[Zone]):
     def __init__(self, db: AsyncSession) -> None:
         super().__init__(db, Zone)
 
-    # ------------------------------------------------------------------
-    # Búsquedas específicas
-    # ------------------------------------------------------------------
+    # Busquedas especificas
 
     async def get_by_user_id(
         self, user_id: int, skip: int = 0, limit: int = 100
@@ -56,9 +54,7 @@ class ZoneRepository(BaseRepository[Zone]):
         )
         return result.scalar_one() > 0
 
-    # ------------------------------------------------------------------
     # Escritura especializada
-    # ------------------------------------------------------------------
 
     async def create_zone(self, user_id: int, data: dict[str, Any]) -> Zone:
         # Crea una zona asociada al usuario dado.

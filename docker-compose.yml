@@ -1,25 +1,20 @@
-# ============================================
-# SynapSeed — Docker Compose (desarrollo local)
-# ============================================
+# Docker Compose para desarrollo local de SynapSeed
 # Stack: redis + backend (FastAPI) + worker (Celery) + frontend (Vite HMR)
-# DB: Supabase (externa) — no se levanta postgres localmente.
+# La base de datos es Supabase (externa), no se levanta postgres local.
 #
-# Uso rápido:
-#   docker compose up -d            → levantar todo en background
-#   docker compose logs -f backend  → ver logs del backend
-#   docker compose down             → bajar todo
+# Comandos rapidos:
+#   docker compose up -d            - levantar todo en background
+#   docker compose logs -f backend  - ver logs del backend
+#   docker compose down             - bajar todo
 #
 # Accesos una vez levantado:
-#   Frontend  → http://localhost:5173
-#   Swagger   → http://localhost:8000/docs
-#   ReDoc     → http://localhost:8000/redoc
-#   API       → http://localhost:8000/api/v1
+#   Frontend  - http://localhost:5173
+#   Swagger   - http://localhost:8000/docs
+#   API       - http://localhost:8000/api/v1
 
 services:
 
-  # -----------------------------------------------------------
-  # Redis 7 — broker de Celery + pub/sub SSE
-  # -----------------------------------------------------------
+  # Redis 7 - broker de Celery y pub/sub para SSE
   redis:
     image: redis:7-alpine
     container_name: synapseed-redis
@@ -38,11 +33,7 @@ services:
     networks:
       - synapseed-net
 
-  # -----------------------------------------------------------
-  # Backend — FastAPI + Uvicorn (autoreload en dev)
-  # DB y Auth vienen de Supabase (variables en .env).
-  # Swagger disponible en http://localhost:8000/docs
-  # -----------------------------------------------------------
+  # Backend - FastAPI con autoreload. DB y Auth vienen de Supabase (.env).
   backend:
     build:
       context: ./src/backend
@@ -55,10 +46,8 @@ services:
     env_file:
       - .env
 
-    # Solo se sobreescriben las URLs internas de Docker
+    # Solo se sobreescriben las URLs internas de Docker (DATABASE_URL viene del .env → Supabase)
     environment:
-      DATABASE_URL: postgresql+asyncpg://synapseed:synapseed@postgres:5432/synapseed
-      DATABASE_URL_SYNC: postgresql+psycopg2://synapseed:synapseed@postgres:5432/synapseed
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
@@ -91,9 +80,7 @@ services:
     networks:
       - synapseed-net
 
-  # -----------------------------------------------------------
-  # Worker — Celery ejecutando el pipeline LangGraph / IA
-  # -----------------------------------------------------------
+  # Worker - Celery ejecuta el pipeline de agentes IA (LangGraph)
   worker:
     build:
       context: ./src/backend
@@ -105,8 +92,6 @@ services:
       - .env
 
     environment:
-      DATABASE_URL: postgresql+asyncpg://synapseed:synapseed@postgres:5432/synapseed
-      DATABASE_URL_SYNC: postgresql+psycopg2://synapseed:synapseed@postgres:5432/synapseed
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
@@ -118,11 +103,7 @@ services:
     networks:
       - synapseed-net
 
-  # -----------------------------------------------------------
-  # Frontend — Vite dev server con HMR
-  # Accesible en http://localhost:5173
-  # El proxy de Vite enruta /api → backend:8000 dentro de la red Docker
-  # -----------------------------------------------------------
+  # Frontend - Vite con HMR en :5173. El proxy enruta /api al backend.
   frontend:
     build:
       context: ./src/frontend
@@ -154,18 +135,14 @@ services:
     networks:
       - synapseed-net
 
-# ============================================
-# Volúmenes persistentes
-# ============================================
+# Volumenes persistentes
 volumes:
   redis_data:
     driver: local
   frontend_node_modules:
     driver: local
 
-# ============================================
 # Red interna compartida entre servicios
-# ============================================
 networks:
   synapseed-net:
     driver: bridge

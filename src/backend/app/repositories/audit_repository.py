@@ -16,9 +16,7 @@ class AuditRepository(BaseRepository[AuditLog]):
     def __init__(self, db: AsyncSession) -> None:
         super().__init__(db, AuditLog)
 
-    # ------------------------------------------------------------------
     # Escritura especializada
-    # ------------------------------------------------------------------
 
     async def log(
         self,
@@ -46,9 +44,7 @@ class AuditRepository(BaseRepository[AuditLog]):
             }
         )
 
-    # ------------------------------------------------------------------
     # Lectura
-    # ------------------------------------------------------------------
 
     async def get_by_user(
         self,

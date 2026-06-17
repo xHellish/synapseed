@@ -15,9 +15,7 @@ class UserRepository(BaseRepository[User]):
     def __init__(self, db: AsyncSession) -> None:
         super().__init__(db, User)
 
-    # ------------------------------------------------------------------
-    # Búsquedas específicas
-    # ------------------------------------------------------------------
+    # Busquedas especificas
 
     async def get_by_email(self, email: str) -> User | None:
         # Retorna el usuario por email (case-insensitive).
@@ -51,9 +49,7 @@ class UserRepository(BaseRepository[User]):
         )
         return result.scalar_one()
 
-    # ------------------------------------------------------------------
     # Verificaciones
-    # ------------------------------------------------------------------
 
     async def exists_email(self, email: str) -> bool:
         # Verifica si ya existe un usuario con ese email.
@@ -73,9 +69,7 @@ class UserRepository(BaseRepository[User]):
         )
         return result.scalar_one() > 0
 
-    # ------------------------------------------------------------------
     # Escritura especializada
-    # ------------------------------------------------------------------
 
     async def create_user(self, data: dict[str, Any]) -> User:
         # Crea un usuario nuevo. El campo password_hash ya debe venir hasheado.

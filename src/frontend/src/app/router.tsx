@@ -1,6 +1,4 @@
-// ============================================
-// SynapSeed — Router
-// ============================================
+// Rutas de la aplicacion
 
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 

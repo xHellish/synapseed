@@ -177,126 +177,127 @@ export function LoginPage() {
           >
             {isSubmitting ? 'Iniciando sesión...' : 'Iniciar sesión'}
           </SynapButton>
+        </form>
 
+        {/* El Dialog va fuera del form para evitar que sus eventos disparen el submit del login */}
+        <Dialog.Root
+          open={passwordResetOpen}
+          onOpenChange={(nextOpen) => {
+            setPasswordResetOpen(nextOpen)
+            if (!nextOpen) resetPasswordResetForm()
+          }}
+        >
           <div className="pt-1 text-center">
-            <Dialog.Root
-              open={passwordResetOpen}
-              onOpenChange={(nextOpen) => {
-                setPasswordResetOpen(nextOpen)
-                if (!nextOpen) resetPasswordResetForm()
-              }}
-            >
-              <Dialog.Trigger asChild>
-                <button
-                  type="button"
-                  className="text-lg text-[#6B7280] transition hover:text-[#16A34A]"
-                >
-                  ¿Olvidaste tu contraseña?
-                </button>
-              </Dialog.Trigger>
-
-              <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 z-50 bg-[#111827]/45 backdrop-blur-sm" />
-                <Dialog.Content className="fixed left-1/2 top-1/2 z-[60] w-[calc(100vw-2rem)] max-w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[#E5E7EB] bg-white p-6 text-left shadow-2xl sm:p-8">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <Dialog.Title className="text-[28px] font-bold leading-tight text-[#111827]">
-                        Recuperar contraseña
-                      </Dialog.Title>
-                      <Dialog.Description className="mt-3 text-base leading-6 text-[#6B7280]">
-                        Ingrese su identificación, correo y una nueva contraseña.
-                      </Dialog.Description>
-                    </div>
-
-                    <Dialog.Close asChild>
-                      <button
-                        type="button"
-                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[#E5E7EB] bg-white text-[#111827] transition hover:bg-[#F7F8F2]"
-                        aria-label="Cerrar"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
-                    </Dialog.Close>
-                  </div>
-
-                  <form className="mt-6 space-y-4" onSubmit={handlePasswordResetSubmit(onPasswordResetSubmit)} noValidate>
-                    <TextField
-                      id="reset-identification"
-                      label="Número de identificación:"
-                      icon={UserRound}
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="username"
-                      placeholder="0 0000 0000"
-                      error={passwordResetErrors.identification?.message}
-                      {...registerPasswordReset('identification', {
-                        onChange: (event) => {
-                          const formatted = formatIdentification(event.target.value)
-                          setPasswordResetValue('identification', formatted, { shouldValidate: true })
-                        },
-                      })}
-                    />
-
-                    <TextField
-                      id="reset-email"
-                      label="Correo electrónico:"
-                      icon={Mail}
-                      type="email"
-                      autoComplete="email"
-                      placeholder="usuario@correo.com"
-                      error={passwordResetErrors.email?.message}
-                      {...registerPasswordReset('email')}
-                    />
-
-                    <TextField
-                      id="reset-new-password"
-                      label="Nueva contraseña:"
-                      icon={Lock}
-                      type="password"
-                      autoComplete="new-password"
-                      placeholder="********"
-                      error={passwordResetErrors.newPassword?.message}
-                      {...registerPasswordReset('newPassword')}
-                    />
-
-                    <TextField
-                      id="reset-confirm-password"
-                      label="Confirmar contraseña:"
-                      icon={Lock}
-                      type="password"
-                      autoComplete="new-password"
-                      placeholder="********"
-                      error={passwordResetErrors.confirmPassword?.message}
-                      {...registerPasswordReset('confirmPassword')}
-                    />
-
-                    <div className="grid gap-3 pt-3 sm:grid-cols-2">
-                      <Dialog.Close asChild>
-                        <button
-                          type="button"
-                          className={buttonClasses({ variant: 'outline', size: 'lg', className: 'w-full' })}
-                        >
-                          Cancelar
-                        </button>
-                      </Dialog.Close>
-
-                      <SynapButton type="submit" disabled={isResettingPassword} size="lg" className="w-full">
-                        {isResettingPassword ? 'Actualizando...' : 'Actualizar contraseña'}
-                      </SynapButton>
-                    </div>
-                  </form>
-                </Dialog.Content>
-              </Dialog.Portal>
-            </Dialog.Root>
+            <Dialog.Trigger asChild>
+              <button
+                type="button"
+                className="text-lg text-[#6B7280] transition hover:text-[#16A34A]"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </Dialog.Trigger>
           </div>
 
-          <Link
-            to="/register"
-            className={buttonClasses({ variant: 'outline', size: 'lg', className: 'w-full border-[#16A34A] text-[#16A34A]' })}
-          >
-            Crear cuenta
-          </Link>
-        </form>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-50 bg-[#111827]/45 backdrop-blur-sm" />
+            <Dialog.Content className="fixed left-1/2 top-1/2 z-[60] w-[calc(100vw-2rem)] max-w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[#E5E7EB] bg-white p-6 text-left shadow-2xl sm:p-8">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Dialog.Title className="text-[28px] font-bold leading-tight text-[#111827]">
+                    Recuperar contraseña
+                  </Dialog.Title>
+                  <Dialog.Description className="mt-3 text-base leading-6 text-[#6B7280]">
+                    Ingrese su identificación, correo y una nueva contraseña.
+                  </Dialog.Description>
+                </div>
+
+                <Dialog.Close asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[#E5E7EB] bg-white text-[#111827] transition hover:bg-[#F7F8F2]"
+                    aria-label="Cerrar"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </Dialog.Close>
+              </div>
+
+              <form className="mt-6 space-y-4" onSubmit={handlePasswordResetSubmit(onPasswordResetSubmit)} noValidate>
+                <TextField
+                  id="reset-identification"
+                  label="Número de identificación:"
+                  icon={UserRound}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="username"
+                  placeholder="0 0000 0000"
+                  error={passwordResetErrors.identification?.message}
+                  {...registerPasswordReset('identification', {
+                    onChange: (event) => {
+                      const formatted = formatIdentification(event.target.value)
+                      setPasswordResetValue('identification', formatted, { shouldValidate: true })
+                    },
+                  })}
+                />
+
+                <TextField
+                  id="reset-email"
+                  label="Correo electrónico:"
+                  icon={Mail}
+                  type="email"
+                  autoComplete="email"
+                  placeholder="usuario@correo.com"
+                  error={passwordResetErrors.email?.message}
+                  {...registerPasswordReset('email')}
+                />
+
+                <TextField
+                  id="reset-new-password"
+                  label="Nueva contraseña:"
+                  icon={Lock}
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="********"
+                  error={passwordResetErrors.newPassword?.message}
+                  {...registerPasswordReset('newPassword')}
+                />
+
+                <TextField
+                  id="reset-confirm-password"
+                  label="Confirmar contraseña:"
+                  icon={Lock}
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="********"
+                  error={passwordResetErrors.confirmPassword?.message}
+                  {...registerPasswordReset('confirmPassword')}
+                />
+
+                <div className="grid gap-3 pt-3 sm:grid-cols-2">
+                  <Dialog.Close asChild>
+                    <button
+                      type="button"
+                      className={buttonClasses({ variant: 'outline', size: 'lg', className: 'w-full' })}
+                    >
+                      Cancelar
+                    </button>
+                  </Dialog.Close>
+
+                  <SynapButton type="submit" disabled={isResettingPassword} size="lg" className="w-full">
+                    {isResettingPassword ? 'Actualizando...' : 'Actualizar contraseña'}
+                  </SynapButton>
+                </div>
+              </form>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+
+        <Link
+          to="/register"
+          className={buttonClasses({ variant: 'outline', size: 'lg', className: 'w-full border-[#16A34A] text-[#16A34A] mt-5' })}
+        >
+          Crear cuenta
+        </Link>
 
         <Toast.Root
           open={toastOpen}

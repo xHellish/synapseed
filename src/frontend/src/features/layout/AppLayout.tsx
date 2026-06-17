@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { ClipboardCheck, LogOut, MapPin, Menu, UserRound, X } from 'lucide-react'
 
 import { useAuthStore } from '@/stores/authStore'
@@ -18,6 +19,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [open, setOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const logout = useAuthStore((state) => state.logout)
   const isActive = (href: string) => {
     if (href === '/cases/wizard/step-1') {
@@ -31,6 +33,9 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const handleLogout = () => {
     logout()
+    // Borra todo el cache de la sesión (zonas, cuenta, recomendaciones, cultivos)
+    // para que ningún dato del usuario anterior quede en memoria.
+    queryClient.clear()
     setOpen(false)
     navigate('/login', { replace: true })
   }

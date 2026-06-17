@@ -21,9 +21,7 @@ class BaseRepository(Generic[ModelT]):
         self._db = db
         self._model = model
 
-    # ------------------------------------------------------------------
     # Lectura
-    # ------------------------------------------------------------------
 
     async def get_by_id(self, id: int) -> ModelT | None:
         # Retorna el registro por PK o None si no existe.
@@ -55,9 +53,7 @@ class BaseRepository(Generic[ModelT]):
         )
         return result.scalar_one() > 0
 
-    # ------------------------------------------------------------------
     # Escritura
-    # ------------------------------------------------------------------
 
     async def create(self, data: dict[str, Any]) -> ModelT:
         # Crea y persiste un nuevo registro.
@@ -81,9 +77,7 @@ class BaseRepository(Generic[ModelT]):
         await self._db.delete(instance)
         await self._db.commit()
 
-    # ------------------------------------------------------------------
-    # Helpers de transacción
-    # ------------------------------------------------------------------
+    # Helpers de transaccion
 
     async def flush(self) -> None:
         # Envía los cambios al servidor sin hacer commit (útil en transacciones).

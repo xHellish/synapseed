@@ -15,9 +15,7 @@ from app.schemas.agent_context import ContextAnalysisOutput
 from app.schemas.agent_products import ProductCandidate
 
 
-# =============================================================================
-#   Repositorio concreto — usado por la API REST
-# =============================================================================
+# Repositorio de productos para la API REST
 
 
 class ProductRepository(BaseRepository[Product]):
@@ -26,9 +24,7 @@ class ProductRepository(BaseRepository[Product]):
     def __init__(self, db: AsyncSession) -> None:
         super().__init__(db, Product)
 
-    # ------------------------------------------------------------------
-    # Búsquedas específicas
-    # ------------------------------------------------------------------
+    # Busquedas especificas
 
     async def get_by_numero_registro(self, numero_registro: str) -> Product | None:
         """Retorna el producto por número de registro SFE."""
@@ -150,9 +146,7 @@ class ProductRepository(BaseRepository[Product]):
         )
         return result.scalar_one() > 0
 
-    # ------------------------------------------------------------------
     # Escritura especializada
-    # ------------------------------------------------------------------
 
     async def create_product(self, data: dict[str, Any]) -> Product:
         """Crea un nuevo producto agroquímico."""
@@ -169,9 +163,7 @@ class ProductRepository(BaseRepository[Product]):
         return await self.update(product, {"embedding": embedding})
 
 
-# =============================================================================
-#   Abstracción para el pipeline de agentes (desacoplada del ORM)
-# =============================================================================
+# Abstraccion para el pipeline de agentes, desacoplada del ORM
 
 
 @dataclass(frozen=True)
@@ -204,9 +196,7 @@ class AbstractProductRepository(ABC):
         """Retorna candidatos y el método de búsqueda usado."""
 
 
-# ------------------------------------------------------------------
-# Helpers de puntuación y transformación
-# ------------------------------------------------------------------
+# Helpers de puntuacion y transformacion
 
 
 def _score_product(product: ProductRecord, context: ContextAnalysisOutput) -> tuple[float, str]:
@@ -281,9 +271,7 @@ def _orm_to_record(product: Product) -> ProductRecord:
     )
 
 
-# ------------------------------------------------------------------
 # Implementaciones concretas del repositorio abstracto
-# ------------------------------------------------------------------
 
 
 class SqlAlchemyProductRepository(AbstractProductRepository):

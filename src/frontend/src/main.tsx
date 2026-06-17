@@ -6,10 +6,7 @@ import { RouterProvider } from 'react-router-dom'
 import { router } from '@/app/router'
 import '@/styles/globals.css'
 
-// ============================================
-// SynapSeed — Entry point
-// ============================================
-// Configuración del cliente de TanStack Query (cache de servidor).
+// Configuracion del QueryClient (cache de servidor) y montaje de la app
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

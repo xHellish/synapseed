@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const caseStep1Schema = z.object({
-  finca_id: z.string().min(1, 'Seleccione una finca'),
+  finca_id: z.string().optional(),
   finca_name: z.string().optional(),
   crop: z.string().min(1, 'Seleccione cultivo'),
   crop_stage: z.string().min(1, 'Seleccione etapa'),
