@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, Check, Leaf, Loader2, Search, Shield, Sparkles } from 'lucide-react'
 
@@ -8,6 +7,7 @@ import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { useWizardStore } from '@/stores/wizardStore'
 import { CaseStepper, PageHeader, Panel, SynapButton } from '@/components/ui/prototype'
+import { recommendationsApi } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import {
   buildComparisonRows,
@@ -193,10 +193,8 @@ export function CaseWizardStep3() {
     queryKey: ['recommendation', id],
     queryFn: async () => {
       if (isDemo) return DEMO_RECOMMENDATION
-      const response = await axios.get(`/api/v1/recommendations/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      return response.data
+      if (!id) throw new Error('Recommendation id is required')
+      return recommendationsApi.detail(token, id)
     },
     enabled: isDemo || !!token,
   })
@@ -205,10 +203,8 @@ export function CaseWizardStep3() {
     queryKey: ['providers', id],
     queryFn: async () => {
       if (isDemo) return []
-      const response = await axios.get(`/api/v1/recommendations/${id}/providers`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      return response.data
+      if (!id) return []
+      return recommendationsApi.providers(token, id)
     },
     enabled: !!token && !isDemo && recommendation?.status === 'completed',
   })
@@ -239,12 +235,10 @@ export function CaseWizardStep3() {
     if (recommendation.status !== 'pending' && recommendation.status !== 'processing') return
 
     const interval = setInterval(() => {
-      void axios
-        .get(`/api/v1/recommendations/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        .then((response) => {
-          queryClient.setQueryData(['recommendation', id], response.data)
+      void recommendationsApi
+        .detail(token, id)
+        .then((data) => {
+          queryClient.setQueryData(['recommendation', id], data)
         })
         .catch(() => undefined)
     }, 1000)

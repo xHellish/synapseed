@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import axios from 'axios'
 import { Link, useNavigate } from 'react-router-dom'
 import * as Toast from '@radix-ui/react-toast'
 import { BadgeCheck, Lock, Mail, Phone, UserRound } from 'lucide-react'
 
 import { SynapButton, TextField } from '@/components/ui/prototype'
 import { buttonClasses } from '@/components/ui/prototypeStyles'
+import { authApi } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { AuthLayout } from './AuthLayout'
 
@@ -73,7 +73,7 @@ export function RegisterPage() {
 
   const onSubmit = async (values: RegisterFormValues) => {
     try {
-      await axios.post('/api/v1/auth/register', {
+      await authApi.register({
         identification: values.identification.replace(/\s+/g, ''),
         full_name: values.fullName.trim(),
         phone: values.phone.trim(),

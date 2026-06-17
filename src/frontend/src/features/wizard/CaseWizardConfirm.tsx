@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 
@@ -8,20 +7,10 @@ import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { useWizardStore } from '@/stores/wizardStore'
 import { CaseStepper, PageHeader, Panel, SynapButton } from '@/components/ui/prototype'
+import { recommendationsApi, zonesApi, type RecommendationRequestResponse, type ZonePayload } from '@/lib/api'
+import { getApiErrorMessage } from '@/lib/apiError'
 
-interface ZoneSummary {
-  id: string | number
-  name?: string
-  soil_type?: string
-  humidity?: string
-  temperature?: string
-  water_quality?: string
-}
-
-interface RecommendationRequestResponse {
-  recommendation_id: string | number
-  ticket_id: string
-}
+type ZoneSummary = ZonePayload
 
 const HUMIDITY_MAP: Record<string, number> = {
   'Muy baja': 20,
@@ -77,12 +66,7 @@ export function CaseWizardConfirm() {
 
   const { data: zones = [] } = useQuery<ZoneSummary[]>({
     queryKey: ['user', 'zones'],
-    queryFn: async () => {
-      const response = await axios.get('/api/v1/zones', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      return response.data
-    },
+    queryFn: () => zonesApi.list(token),
     enabled: !!token,
     staleTime: 0,
     refetchOnMount: true,
@@ -95,12 +79,7 @@ export function CaseWizardConfirm() {
   })()
 
   const mutation = useMutation({
-    mutationFn: async (payload: Record<string, unknown>) => {
-      const response = await axios.post('/api/v1/recommendations/request', payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      return response.data
-    },
+    mutationFn: (payload: Record<string, unknown>) => recommendationsApi.request(token, payload),
     onSuccess: (response: RecommendationRequestResponse) => {
       const recommendationId = response.recommendation_id
       update({ ticket_id: response.ticket_id, recommendation_id: String(recommendationId) })
@@ -108,7 +87,7 @@ export function CaseWizardConfirm() {
       navigate(`/recommendations/${recommendationId}`)
     },
     onError: (error: unknown) => {
-      const detail = axios.isAxiosError(error) ? error.response?.data?.detail ?? 'Error desconocido' : 'Error desconocido'
+      const detail = getApiErrorMessage(error, 'Error desconocido')
       alert(`No fue posible solicitar la recomendación: ${detail}`)
     },
   })

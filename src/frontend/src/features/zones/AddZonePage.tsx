@@ -3,7 +3,6 @@ import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
 import { useLocation, useNavigate } from 'react-router-dom'
 import * as Toast from '@radix-ui/react-toast'
 
@@ -11,6 +10,7 @@ import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { HUMIDITY_OPTIONS, SOIL_OPTIONS, TEMPERATURE_OPTIONS, WATER_OPTIONS } from '@/features/wizard/constants'
 import { PageHeader, Panel, SelectField, SynapButton, TextField } from '@/components/ui/prototype'
+import { zonesApi } from '@/lib/api'
 
 const addZoneSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -57,16 +57,10 @@ export function AddZonePage() {
   const saveMutation = useMutation({
     mutationFn: async (payload: AddZoneForm) => {
       if (editingZone?.id) {
-        const response = await axios.put(`/api/v1/zones/${editingZone.id}`, payload, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        return response.data
+        return zonesApi.update(token, editingZone.id, payload)
       }
 
-      const response = await axios.post('/api/v1/zones', payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      return response.data
+      return zonesApi.create(token, payload)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zones'] })

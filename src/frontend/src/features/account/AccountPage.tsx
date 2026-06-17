@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import axios from 'axios'
 import * as Toast from '@radix-ui/react-toast'
 import { Lock, UserRound } from 'lucide-react'
 
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { PageHeader, Panel, SectionTitle, SynapButton, TextField } from '@/components/ui/prototype'
+import { userApi } from '@/lib/api'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const profileSchema = z
   .object({
@@ -63,10 +64,7 @@ export function AccountPage() {
     const loadProfile = async () => {
       if (!token) return
       try {
-        const response = await axios.get('/api/v1/users/me', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        const profile = response.data
+        const profile = await userApi.getMe(token)
         const phoneVal = profile.phone?.replace(/-/g, ' ') ?? '+506 8888 8888'
         setOriginalPhone(phoneVal)
         reset({
@@ -117,15 +115,11 @@ export function AccountPage() {
       }
 
       if (profileChanged) {
-        await axios.put(
-          '/api/v1/users/me',
-          {
-            full_name: values.fullName.trim(),
-            email: values.email.trim(),
-            phone: values.phone.trim(),
-          },
-          { headers: { Authorization: `Bearer ${token}` } },
-        )
+        await userApi.updateMe(token, {
+          full_name: values.fullName.trim(),
+          email: values.email.trim(),
+          phone: values.phone.trim(),
+        })
 
         setOriginalPhone(values.phone.trim())
 
@@ -141,9 +135,7 @@ export function AccountPage() {
       setToastDescription('Tu perfil se actualizó correctamente.')
       setToastOpen(true)
     } catch (error: unknown) {
-      const message = axios.isAxiosError(error)
-        ? error.response?.data?.detail ?? 'No fue posible actualizar la información.'
-        : 'No fue posible actualizar la información.'
+      const message = getApiErrorMessage(error, 'No fue posible actualizar la información.')
       setToastTitle('No se pudieron guardar los cambios')
       setToastDescription(String(message))
       setToastOpen(true)

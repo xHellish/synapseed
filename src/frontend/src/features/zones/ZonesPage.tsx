@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
 import * as Toast from '@radix-ui/react-toast'
 import { Edit2, MapPin, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -8,18 +7,9 @@ import { useNavigate } from 'react-router-dom'
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { IconStat, PageHeader, Panel, SynapButton } from '@/components/ui/prototype'
+import { zonesApi, type ZonePayload } from '@/lib/api'
 
-interface Zone {
-  id: string
-  name: string
-  location: string
-  soil_type: string
-  humidity: string
-  temperature: string
-  water_quality: string
-  crop?: string
-  user_id?: string
-}
+type Zone = ZonePayload
 
 export function ZonesPage() {
   const token = useAuthStore((state) => state.token)
@@ -31,21 +21,12 @@ export function ZonesPage() {
 
   const { data: zones = [], isLoading } = useQuery<Zone[]>({
     queryKey: ['zones'],
-    queryFn: async () => {
-      const response = await axios.get('/api/v1/zones', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      return response.data
-    },
+    queryFn: () => zonesApi.list(token),
+    enabled: !!token,
   })
 
   const deleteZoneMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await axios.delete(`/api/v1/zones/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      return response.data
-    },
+    mutationFn: (id: string | number) => zonesApi.delete(token, id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zones'] })
       setToastTitle('Zona eliminada')

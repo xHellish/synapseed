@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import axios from 'axios'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Info } from 'lucide-react'
@@ -10,6 +9,7 @@ import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { useWizardStore } from '@/stores/wizardStore'
 import { CaseStepper, PageHeader, Panel, SelectField, SynapButton, TextField } from '@/components/ui/prototype'
+import { catalogsApi, zonesApi, type CropOptionPayload, type ZonePayload } from '@/lib/api'
 import {
   HUMIDITY_OPTIONS,
   PROBLEM_OPTIONS,
@@ -21,20 +21,8 @@ import {
 import { caseStep1Schema } from './schemas'
 import type { CaseStep1Form } from './schemas'
 
-interface ZoneOption {
-  id: string | number
-  name?: string
-  nombre?: string
-  soil_type?: string
-  humidity?: string
-  temperature?: string
-  water_quality?: string
-}
-
-interface CropOption {
-  id: string
-  name: string
-}
+type ZoneOption = ZonePayload
+type CropOption = CropOptionPayload
 
 export function CaseWizardStep1() {
   const token = useAuthStore((state) => state.token)
@@ -64,21 +52,13 @@ export function CaseWizardStep1() {
 
   const { data: fincas = [] } = useQuery<ZoneOption[]>({
     queryKey: ['user', 'zones'],
-    queryFn: async () => {
-      const response = await axios.get('/api/v1/zones', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      return response.data
-    },
+    queryFn: () => zonesApi.list(token),
     enabled: !!token,
   })
 
   const { data: cropOptions = [] } = useQuery<CropOption[]>({
     queryKey: ['catalogs', 'crops'],
-    queryFn: async () => {
-      const response = await axios.get('/api/v1/catalogs/crops')
-      return response.data
-    },
+    queryFn: catalogsApi.crops,
     staleTime: 5 * 60 * 1000,
   })
 

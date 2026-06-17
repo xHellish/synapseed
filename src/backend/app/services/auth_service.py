@@ -13,13 +13,23 @@ from app.core.supabase import (
     SupabaseAuthError,
     SupabaseSession,
     SupabaseSignupResult,
-    get_user as supabase_get_user,
     sign_in_with_password,
     sign_up,
+)
+from app.core.supabase import (
+    get_user as supabase_get_user,
+)
+from app.core.supabase import (
     update_user as supabase_update_user,
 )
 from app.models.user import User
-from app.schemas.user import PasswordChange, PasswordResetRequest, UserLogin, UserRegister, UserUpdate
+from app.schemas.user import (
+    PasswordChange,
+    PasswordResetRequest,
+    UserLogin,
+    UserRegister,
+    UserUpdate,
+)
 
 
 class AuthError(Exception):

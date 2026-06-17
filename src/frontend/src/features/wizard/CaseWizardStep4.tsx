@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
 import { useParams } from 'react-router-dom'
 import { Leaf, Mail, MapPin, Phone } from 'lucide-react'
 
@@ -9,6 +8,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useWizardStore } from '@/stores/wizardStore'
 import { CaseStepper, PageHeader, Panel, SynapButton } from '@/components/ui/prototype'
 import { buttonClasses } from '@/components/ui/prototypeStyles'
+import { recommendationsApi } from '@/lib/api'
 import { normalizeProviders, type ProviderPayload } from './recommendationMapper'
 
 const DEMO_PROVIDERS = normalizeProviders([
@@ -59,10 +59,8 @@ export function CaseWizardStep4() {
     queryKey: ['providers', id],
     queryFn: async () => {
       if (isDemo) return []
-      const response = await axios.get(`/api/v1/recommendations/${id}/providers`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      return response.data
+      if (!id) return []
+      return recommendationsApi.providers(token, id)
     },
     enabled: isDemo || !!token,
   })

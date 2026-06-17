@@ -55,10 +55,9 @@ services:
     env_file:
       - .env
 
-    # Solo se sobreescriben las URLs internas de Docker
+    # Solo se sobreescriben las URLs internas de Docker para servicios locales.
+    # DATABASE_URL y DATABASE_URL_SYNC se toman del .env porque la DB es Supabase externa.
     environment:
-      DATABASE_URL: postgresql+asyncpg://synapseed:synapseed@postgres:5432/synapseed
-      DATABASE_URL_SYNC: postgresql+psycopg2://synapseed:synapseed@postgres:5432/synapseed
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
@@ -105,8 +104,6 @@ services:
       - .env
 
     environment:
-      DATABASE_URL: postgresql+asyncpg://synapseed:synapseed@postgres:5432/synapseed
-      DATABASE_URL_SYNC: postgresql+psycopg2://synapseed:synapseed@postgres:5432/synapseed
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
@@ -147,6 +144,9 @@ services:
       - ./src/frontend/src:/app/src
       - ./src/frontend/public:/app/public
       - ./src/frontend/index.html:/app/index.html
+      - ./src/frontend/tsconfig.json:/app/tsconfig.json
+      - ./src/frontend/tsconfig.app.json:/app/tsconfig.app.json
+      - ./src/frontend/tsconfig.node.json:/app/tsconfig.node.json
       - ./src/frontend/vite.config.ts:/app/vite.config.ts
       - ./src/frontend/vite.config.js:/app/vite.config.js
       - frontend_node_modules:/app/node_modules

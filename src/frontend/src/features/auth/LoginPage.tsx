@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import axios from 'axios'
 import { useNavigate, Link } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Toast from '@radix-ui/react-toast'
@@ -11,6 +10,7 @@ import { Lock, Mail, UserRound, X } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { SynapButton, TextField } from '@/components/ui/prototype'
 import { buttonClasses } from '@/components/ui/prototypeStyles'
+import { authApi } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { AuthLayout } from './AuthLayout'
 
@@ -89,13 +89,13 @@ export function LoginPage() {
   const onSubmit = async (values: LoginFormValues) => {
     try {
       const rawIdentification = values.identification.replace(/\s/g, '')
-      const response = await axios.post('/api/v1/auth/login', {
+      const response = await authApi.login({
         identification: rawIdentification,
         password: values.password,
       })
 
-      const { access_token, user } = response.data
-      login(access_token, user)
+      const { access_token, user } = response
+      login(access_token, { ...user, id: String(user.id) })
 
       setToastTitle('Inicio de sesión exitoso')
       setToastDescription('Redirigiendo a tu zona protegida...')
@@ -114,7 +114,7 @@ export function LoginPage() {
 
   const onPasswordResetSubmit = async (values: PasswordResetFormValues) => {
     try {
-      await axios.post('/api/v1/auth/reset-password', {
+      await authApi.resetPassword({
         identification: values.identification.replace(/\s/g, ''),
         email: values.email.trim(),
         new_password: values.newPassword,
