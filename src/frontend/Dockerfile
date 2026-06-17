@@ -13,8 +13,9 @@ WORKDIR /app
 # El lockfile puede no existir en clones locales, así que copiamos ambos patrones.
 COPY package*.json ./
 
-# Usar npm ci cuando existe lockfile; npm install como fallback local.
-RUN if [ -f package-lock.json ]; then \
+# Usar npm ci solo si hay un lockfile NO vacío; si no, npm install (fallback local).
+# `-s` verifica que el archivo exista y tenga contenido (evita fallos con locks de 0 bytes).
+RUN if [ -s package-lock.json ]; then \
       npm ci --no-audit --no-fund; \
     else \
       npm install --no-audit --no-fund; \

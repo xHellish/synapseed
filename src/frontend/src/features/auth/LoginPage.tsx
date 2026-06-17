@@ -19,7 +19,7 @@ const loginSchema = z.object({
     .string()
     .trim()
     .min(1, 'El número de identificación es obligatorio.')
-    .regex(/^\d{1}\s\d{4}\s\d{4}$/, 'Ingrese una cédula válida con formato 0 0000 0000.'),
+    .regex(/^\d\s\d{4}\s\d{4,5}$/, 'Ingrese una cédula válida con formato 0 0000 0000.'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.'),
 })
 

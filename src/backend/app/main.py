@@ -43,6 +43,17 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
         settings.app_env,
         settings.debug,
     )
+
+    # Precarga catálogos en memoria para respuesta inmediata
+    try:
+        from app.db.session import get_db_session
+        from app.api.v1.catalogs import warm_crops_cache
+        async with get_db_session() as db:
+            await warm_crops_cache(db)
+        logger.info("✅ Cache de cultivos cargado desde Supabase")
+    except Exception as exc:
+        logger.warning("⚠️  No se pudo precargar cultivos: %s", exc)
+
     yield
     logger.info("👋 SynapSeed backend detenido")
 

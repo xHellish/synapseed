@@ -11,7 +11,7 @@ interface AppLayoutProps {
 const navItems = [
   { label: 'Mi cuenta', href: '/account', icon: UserRound },
   { label: 'Gestión de zona', href: '/zones', icon: MapPin },
-  { label: 'Gestión de caso', href: '/cases', icon: ClipboardCheck },
+  { label: 'Gestión de caso', href: '/cases/wizard/step-1', icon: ClipboardCheck },
 ]
 
 export function AppLayout({ children }: AppLayoutProps) {
@@ -19,7 +19,15 @@ export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const logout = useAuthStore((state) => state.logout)
-  const isActive = (href: string) => location.pathname === href || location.pathname.startsWith(`${href}/`)
+  const isActive = (href: string) => {
+    if (href === '/cases/wizard/step-1') {
+      return (
+        location.pathname.startsWith('/cases') ||
+        location.pathname.startsWith('/recommendations')
+      )
+    }
+    return location.pathname === href || location.pathname.startsWith(`${href}/`)
+  }
 
   const handleLogout = () => {
     logout()
@@ -28,9 +36,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F8F2] text-[#111827]">
-      <div className="flex min-h-screen">
-        <aside className="hidden w-[280px] shrink-0 bg-[#14532D] text-white lg:flex lg:flex-col xl:w-[302px]">
+    <div className="flex h-screen overflow-hidden bg-[#F7F8F2] text-[#111827]">
+        <aside className="hidden h-screen w-[280px] shrink-0 bg-[#14532D] text-white lg:flex lg:flex-col xl:w-[302px]">
           <div className="px-9 pb-14 pt-9">
             <img src="/brand/synapseed-white.png" alt="SynapSeed" className="h-auto w-[230px] object-contain" />
           </div>
@@ -65,7 +72,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           </div>
         </aside>
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
           <header className="border-b border-[#E5E7EB] bg-white/90 p-4 backdrop-blur lg:hidden">
             <div className="flex items-center justify-between gap-3">
               <button
@@ -114,7 +121,6 @@ export function AppLayout({ children }: AppLayoutProps) {
             {children}
           </main>
         </div>
-      </div>
     </div>
   )
 }

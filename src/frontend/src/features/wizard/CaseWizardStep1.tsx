@@ -4,13 +4,13 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import axios from 'axios'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { Info } from 'lucide-react'
 
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { useWizardStore } from '@/stores/wizardStore'
 import { CaseStepper, PageHeader, Panel, SelectField, SynapButton, TextField } from '@/components/ui/prototype'
 import {
-  CROP_OPTIONS,
   HUMIDITY_OPTIONS,
   PROBLEM_OPTIONS,
   SOIL_OPTIONS,
@@ -25,6 +25,15 @@ interface ZoneOption {
   id: string | number
   name?: string
   nombre?: string
+  soil_type?: string
+  humidity?: string
+  temperature?: string
+  water_quality?: string
+}
+
+interface CropOption {
+  id: string
+  name: string
 }
 
 export function CaseWizardStep1() {
@@ -33,7 +42,7 @@ export function CaseWizardStep1() {
   const update = useWizardStore((state) => state.update)
   const navigate = useNavigate()
 
-  const { register, handleSubmit, reset, control } = useForm<CaseStep1Form>({
+  const { register, handleSubmit, reset, control, setValue } = useForm<CaseStep1Form>({
     resolver: zodResolver(caseStep1Schema),
     defaultValues: {
       finca_id: '',
@@ -64,6 +73,15 @@ export function CaseWizardStep1() {
     enabled: !!token,
   })
 
+  const { data: cropOptions = [] } = useQuery<CropOption[]>({
+    queryKey: ['catalogs', 'crops'],
+    queryFn: async () => {
+      const response = await axios.get('/api/v1/catalogs/crops')
+      return response.data
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+
   const fincaOptions = useMemo(
     () =>
       fincas.map((finca) => ({
@@ -72,6 +90,26 @@ export function CaseWizardStep1() {
       })),
     [fincas],
   )
+
+  const cropSelectOptions = useMemo(
+    () => cropOptions.map((c) => ({ value: c.name, label: c.name })),
+    [cropOptions],
+  )
+
+  const selectedFinca = useMemo(
+    () => fincas.find((f) => String(f.id) === String(watchedFincaId)),
+    [fincas, watchedFincaId],
+  )
+
+  // Cuando se selecciona una finca, limpiar los campos de ambiente (los toma la zona)
+  useEffect(() => {
+    if (selectedFinca) {
+      setValue('soil_type', '')
+      setValue('humidity', '')
+      setValue('temperature', '')
+      setValue('water_quality', '')
+    }
+  }, [selectedFinca, setValue])
 
   useEffect(() => {
     setStep(1)
@@ -93,11 +131,13 @@ export function CaseWizardStep1() {
   }, [reset, setStep])
 
   const onSubmit = (values: CaseStep1Form) => {
-    const selectedFinca = fincaOptions.find((finca) => finca.value === String(values.finca_id))
-    update({ ...values, finca_name: selectedFinca?.label ?? values.finca_id })
+    const foundFinca = fincaOptions.find((f) => f.value === String(values.finca_id))
+    update({ ...values, finca_name: foundFinca?.label ?? values.finca_id })
     setStep(2)
     navigate('/cases/wizard/step-2')
   }
+
+  const hasFinca = !!watchedFincaId && !!selectedFinca
 
   return (
     <AppLayout>
@@ -137,7 +177,8 @@ export function CaseWizardStep1() {
                       label="Cultivo"
                       value={field.value}
                       onValueChange={field.onChange}
-                      options={CROP_OPTIONS}
+                      options={cropSelectOptions.length > 0 ? cropSelectOptions : []}
+                      placeholder={cropSelectOptions.length === 0 ? 'Cargando cultivos...' : 'Seleccione una opción'}
                       error={fieldState.error?.message}
                     />
                   )}
@@ -166,65 +207,75 @@ export function CaseWizardStep1() {
               </div>
             </div>
 
-            <div>
-              <h2 className="border-b border-[#9CA3AF] pb-2 text-2xl font-semibold text-[#111827]">
-                Condiciones del ambiente:
-              </h2>
-              <div className="mt-5 grid gap-x-10 gap-y-5 md:grid-cols-2">
-                <Controller
-                  control={control}
-                  name="soil_type"
-                  render={({ field, fieldState }) => (
-                    <SelectField
-                      label="Tipo de suelo"
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      options={SOIL_OPTIONS}
-                      error={fieldState.error?.message}
-                    />
-                  )}
-                />
-                <Controller
-                  control={control}
-                  name="humidity"
-                  render={({ field, fieldState }) => (
-                    <SelectField
-                      label="Humedad"
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      options={HUMIDITY_OPTIONS}
-                      error={fieldState.error?.message}
-                    />
-                  )}
-                />
-                <Controller
-                  control={control}
-                  name="temperature"
-                  render={({ field, fieldState }) => (
-                    <SelectField
-                      label="Temperatura"
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      options={TEMPERATURE_OPTIONS}
-                      error={fieldState.error?.message}
-                    />
-                  )}
-                />
-                <Controller
-                  control={control}
-                  name="water_quality"
-                  render={({ field, fieldState }) => (
-                    <SelectField
-                      label="Calidad del agua"
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      options={WATER_OPTIONS}
-                      error={fieldState.error?.message}
-                    />
-                  )}
-                />
+            {hasFinca ? (
+              <div className="flex items-start gap-3 rounded-xl border border-[#BBF7D0] bg-[#F0FDF4] px-5 py-4">
+                <Info className="mt-0.5 h-5 w-5 shrink-0 text-[#16A34A]" />
+                <p className="text-base text-[#166534]">
+                  Las condiciones del ambiente (suelo, humedad, temperatura y calidad del agua) se tomarán
+                  automáticamente de la finca <span className="font-semibold">{selectedFinca.name ?? selectedFinca.nombre}</span>.
+                </p>
               </div>
-            </div>
+            ) : (
+              <div>
+                <h2 className="border-b border-[#9CA3AF] pb-2 text-2xl font-semibold text-[#111827]">
+                  Condiciones del ambiente:
+                </h2>
+                <div className="mt-5 grid gap-x-10 gap-y-5 md:grid-cols-2">
+                  <Controller
+                    control={control}
+                    name="soil_type"
+                    render={({ field, fieldState }) => (
+                      <SelectField
+                        label="Tipo de suelo"
+                        value={field.value ?? ''}
+                        onValueChange={field.onChange}
+                        options={SOIL_OPTIONS}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                  <Controller
+                    control={control}
+                    name="humidity"
+                    render={({ field, fieldState }) => (
+                      <SelectField
+                        label="Humedad"
+                        value={field.value ?? ''}
+                        onValueChange={field.onChange}
+                        options={HUMIDITY_OPTIONS}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                  <Controller
+                    control={control}
+                    name="temperature"
+                    render={({ field, fieldState }) => (
+                      <SelectField
+                        label="Temperatura"
+                        value={field.value ?? ''}
+                        onValueChange={field.onChange}
+                        options={TEMPERATURE_OPTIONS}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                  <Controller
+                    control={control}
+                    name="water_quality"
+                    render={({ field, fieldState }) => (
+                      <SelectField
+                        label="Calidad del agua"
+                        value={field.value ?? ''}
+                        onValueChange={field.onChange}
+                        options={WATER_OPTIONS}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                </div>
+              </div>
+            )}
 
             <div>
               <h2 className="border-b border-[#9CA3AF] pb-2 text-2xl font-semibold text-[#111827]">
@@ -268,7 +319,6 @@ export function CaseWizardStep1() {
             </div>
           </form>
         </Panel>
-        <input type="hidden" value={watchedFincaId ?? ''} readOnly />
       </section>
     </AppLayout>
   )

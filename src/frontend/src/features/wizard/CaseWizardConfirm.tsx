@@ -117,14 +117,15 @@ export function CaseWizardConfirm() {
     const matchedZone = zones.find((zone) => String(zone.id) === String(data.finca_id))
     const zoneId = matchedZone ? Number(matchedZone.id) : undefined
 
+    // Usar || en lugar de ?? para que los strings vacíos también hagan fallback a la zona
     const payload: Record<string, unknown> = {
       crop: data.crop,
       crop_stage: data.crop_stage,
       problem_to_solve: data.problem_to_solve,
-      soil_type: data.soil_type ?? matchedZone?.soil_type,
-      humidity: resolveHumidity(data.humidity ?? matchedZone?.humidity),
-      temperature: resolveTemperature(data.temperature ?? matchedZone?.temperature),
-      water_quality: data.water_quality ?? matchedZone?.water_quality,
+      soil_type: data.soil_type || matchedZone?.soil_type,
+      humidity: resolveHumidity(data.humidity || matchedZone?.humidity),
+      temperature: resolveTemperature(data.temperature || matchedZone?.temperature),
+      water_quality: data.water_quality || matchedZone?.water_quality,
       max_budget_per_liter: data.max_budget_per_liter ?? 0,
       last_agrochemical: data.last_agrochemical ?? null,
       affected_area: data.affected_area ?? null,
@@ -135,7 +136,10 @@ export function CaseWizardConfirm() {
   }
 
   const isPending = mutation.isPending
-  const climate = [data.humidity, data.temperature].filter(Boolean).join(', ')
+  const matchedZoneForDisplay = zones.find((zone) => String(zone.id) === String(data.finca_id))
+  const effectiveHumidity = data.humidity || matchedZoneForDisplay?.humidity
+  const effectiveTemperature = data.temperature || matchedZoneForDisplay?.temperature
+  const climate = [effectiveHumidity, effectiveTemperature].filter(Boolean).join(', ')
 
   return (
     <AppLayout>

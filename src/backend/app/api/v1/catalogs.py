@@ -9,7 +9,21 @@ from app.repositories import ProductRepository
 
 router = APIRouter(prefix="/catalogs", tags=["catalogs"])
 
-# Catálogos estáticos — no requieren DB
+# Cache en memoria cargado al inicio — evita query a DB en cada request
+_crops_cache: list[dict] | None = None
+
+
+async def warm_crops_cache(db: AsyncSession) -> None:
+    """Precarga los cultivos únicos desde lmrs al iniciar la app."""
+    global _crops_cache
+    from app.repositories.lmr_repository import LmrRepository
+    lmr_repo = LmrRepository(db)
+    result = await lmr_repo.get_unique_crops()
+    if result:
+        _crops_cache = result
+
+
+# Catálogos estáticos — fallback si la DB no está disponible en startup
 _CROPS = [
     {"id": "maize", "name": "Maíz"},
     {"id": "coffee", "name": "Café"},
@@ -54,8 +68,14 @@ _BUDGETS = [
 
 
 @router.get("/crops", summary="Lista de cultivos")
-async def list_crops() -> list[dict]:
-    return _CROPS
+async def list_crops(db: AsyncSession = Depends(get_db)) -> list[dict]:
+    if _crops_cache:
+        return _crops_cache
+    # Fallback: query en vivo si el cache no se llenó en startup
+    from app.repositories.lmr_repository import LmrRepository
+    lmr_repo = LmrRepository(db)
+    db_crops = await lmr_repo.get_unique_crops()
+    return db_crops or _CROPS
 
 
 @router.get("/crop-stages", summary="Etapas de cultivo")
