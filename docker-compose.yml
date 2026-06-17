@@ -80,6 +80,8 @@ services:
 
     # Sobreescribe solo las URLs internas de Docker (redis usa el nombre del servicio)
     environment:
+      DATABASE_URL: postgresql+asyncpg://synapseed:synapseed@postgres:5432/synapseed
+      DATABASE_URL_SYNC: postgresql+psycopg2://synapseed:synapseed@postgres:5432/synapseed
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
@@ -124,6 +126,8 @@ services:
       - .env
 
     environment:
+      DATABASE_URL: postgresql+asyncpg://synapseed:synapseed@postgres:5432/synapseed
+      DATABASE_URL_SYNC: postgresql+psycopg2://synapseed:synapseed@postgres:5432/synapseed
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
