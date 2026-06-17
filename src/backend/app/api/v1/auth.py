@@ -11,6 +11,8 @@ from app.services.auth_service import AuthError, authenticate_user, build_token_
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+# Endpoints publicos (no requieren token). Cada uno delega la logica al auth_service
+# y traduce los AuthError del servicio a respuestas HTTP.
 @router.post(
     "/register",
     response_model=UserResponse,

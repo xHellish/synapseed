@@ -12,11 +12,12 @@ from app.db.session import get_db
 router = APIRouter(tags=["health"])
 
 
+# Health check: lo usa Docker para saber si el backend esta listo (healthcheck del compose)
 @router.get("/health", summary="Health check del backend")
 async def health(db: AsyncSession = Depends(get_db)) -> dict:
     settings = get_settings()
 
-    # Verificar conectividad con Supabase
+    # Prueba la conexion a la DB con un SELECT 1 trivial
     db_status = "ok"
     try:
         await db.execute(text("SELECT 1"))

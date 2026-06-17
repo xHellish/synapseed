@@ -19,19 +19,22 @@ from passlib.context import CryptContext
 
 from app.config import get_settings
 
-security_scheme = HTTPBearer(auto_error=False)
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+security_scheme = HTTPBearer(auto_error=False)  # lee el header Authorization: Bearer <token>
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")  # algoritmo de hashing de contrasenas
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    # Compara la contrasena en texto plano contra su hash bcrypt
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
+    # Genera el hash bcrypt para guardar (nunca se guarda la contrasena en claro)
     return pwd_context.hash(password)
 
 
 def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
+    # Firma un JWT local con el user.id en `sub` y una expiracion
     settings = get_settings()
     if expires_delta is None:
         expires_delta = timedelta(hours=settings.jwt_expire_hours)
@@ -42,6 +45,7 @@ def create_access_token(subject: str, expires_delta: timedelta | None = None) ->
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
+    # Verifica la firma y la expiracion del JWT local; falla con 401 si no es valido
     settings = get_settings()
     try:
         return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
@@ -52,6 +56,7 @@ def decode_access_token(token: str) -> dict[str, Any]:
         ) from exc
 
 
+# Dependencia de FastAPI: protege endpoints. Resuelve el usuario a partir del token.
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security_scheme),
 ) -> dict[str, Any]:

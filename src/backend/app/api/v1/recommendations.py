@@ -19,6 +19,8 @@ from app.schemas.common import RecommendationRequest
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 
 
+# Inicia una recomendacion: la guarda como PENDING y dispara el pipeline en segundo plano.
+# Responde 202 (aceptado) de inmediato; el resultado llega luego por el stream SSE.
 @router.post(
     "/request",
     status_code=status.HTTP_202_ACCEPTED,
@@ -32,8 +34,9 @@ async def request_recommendation(
     recommendations = RecommendationRepository(db)
     audit = AuditRepository(db)
 
-    ticket_id = str(uuid4())
+    ticket_id = str(uuid4())  # identificador unico para seguir esta solicitud por SSE
 
+    # Crea el registro en estado PENDING con todo el contexto del caso
     rec = await recommendations.create_recommendation(
         {
             "ticket_id": ticket_id,
@@ -53,6 +56,7 @@ async def request_recommendation(
         }
     )
 
+    # Deja rastro en la bitacora de auditoria
     await audit.log(
         action=AuditAction.RECOMMENDATION_REQUEST,
         user_id=int(current_user["id"]),
@@ -60,6 +64,7 @@ async def request_recommendation(
         entity_id=rec.id,
     )
 
+    # Encola la tarea Celery: el LLM (10-50s) corre en el worker, no bloquea la API
     from app.workers.tasks import generate_recommendation
     generate_recommendation.delay(ticket_id)
 
@@ -71,6 +76,7 @@ async def request_recommendation(
     }
 
 
+# Lista las recomendaciones del usuario logueado (paginada, con filtro opcional por estado)
 @router.get("/history", summary="Historial de recomendaciones del usuario")
 async def history(
     skip: int = Query(0, ge=0),
@@ -100,6 +106,7 @@ async def history(
     ]
 
 
+# Detalle completo de una recomendacion con sus 3 productos y la tabla comparativa
 @router.get(
     "/{recommendation_id}",
     summary="Detalle de una recomendación",
@@ -112,6 +119,7 @@ async def detail(
     recommendations = RecommendationRepository(db)
     audit = AuditRepository(db)
 
+    # Carga la recomendacion con sus productos; valida que sea del usuario (seguridad)
     rec = await recommendations.get_with_products(recommendation_id)
     if not rec or rec.user_id != int(current_user["id"]):
         raise HTTPException(
@@ -130,10 +138,12 @@ async def detail(
 
     lmr_repo = LmrRepository(db)
 
+    # Arma la lista de productos para el frontend, enriqueciendo cada uno con su LMR
     products: list[dict] = []
     for p in rec.products:
         product = p.product
         lmr_val = None
+        # LMR (limite maximo de residuos) se busca por ingrediente activo + cultivo
         if product and product.ingrediente_activo and rec.crop:
             lmr_val = await lmr_repo.get_lmr_by_active_ingredient_and_crop(
                 product.ingrediente_activo,
@@ -141,6 +151,7 @@ async def detail(
             )
 
         def _parse_json_list(raw: str | None) -> list[str]:
+            # ventajas/riesgos se guardan como JSON serializado; aqui se reconvierten a lista
             if not raw:
                 return []
             try:
@@ -196,6 +207,7 @@ async def detail(
     }
 
 
+# Distribuidores donde conseguir los productos recomendados (sin repetir)
 @router.get("/{recommendation_id}/providers", summary="Distribuidores de la recomendación")
 async def providers(
     recommendation_id: int,
@@ -212,7 +224,7 @@ async def providers(
             detail="Recomendación no encontrada",
         )
 
-    seen_ids: set[Any] = set()
+    seen_ids: set[Any] = set()  # evita listar el mismo distribuidor dos veces
     result: list[dict[str, object]] = []
     for rec_product in rec.products:
         dist_list = await distributor_repo.get_by_product(rec_product.product_id)
@@ -237,6 +249,7 @@ async def providers(
                             "canton": d.canton,
                         }
                     )
+        # Si el producto no tiene distribuidores cargados, mostramos al registrante oficial
         elif rec_product.product and rec_product.product.registrante:
             fallback_id = f"reg-{rec_product.product_id}"
             if fallback_id not in seen_ids:
@@ -257,6 +270,8 @@ async def providers(
     return result
 
 
+# Stream SSE: el frontend se suscribe y recibe el progreso del pipeline en tiempo real.
+# Se eligio SSE (no WebSocket) porque el flujo es unidireccional servidor -> cliente.
 @router.get("/stream/{ticket_id}", summary="Stream de progreso (SSE)")
 async def stream(
     ticket_id: str,
@@ -269,7 +284,9 @@ async def stream(
 
     settings = get_settings()
 
+    # Generador asincrono: cada `yield` envia un evento SSE al navegador
     async def event_stream() -> None:
+        # Primer evento: estado actual segun la DB (por si ya termino antes de conectarse)
         async with get_db_session() as db:
             recommendations = RecommendationRepository(db)
             rec = await recommendations.get_by_ticket_id(ticket_id)
@@ -282,15 +299,18 @@ async def stream(
                 f"data: {json.dumps({'ticket_id': ticket_id, 'status': rec.status.value, 'current_step': rec.current_step, 'error_message': rec.error_message})}\n\n"
             )
 
+            # Si ya estaba terminado, no hay nada que transmitir
             if rec.status.value in ("completed", "failed"):
                 return
 
+        # Se suscribe al canal Redis donde el worker publica el avance de cada paso
         redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
         pubsub = redis_client.pubsub()
         channel = f"recommendation_progress:{ticket_id}"
         await pubsub.subscribe(channel)
 
         try:
+            # Bucle: reenvia al navegador cada mensaje que el worker publica
             while True:
                 message = await pubsub.get_message(
                     ignore_subscribe_messages=True,
@@ -300,6 +320,7 @@ async def stream(
                     yield f"event: status\ndata: {message['data']}\n\n"
                     try:
                         parsed = json.loads(message["data"])
+                        # Cuando llega completed/failed, cerramos el stream
                         if parsed.get("status") in ("completed", "failed"):
                             break
                     except Exception:
@@ -307,12 +328,14 @@ async def stream(
 
                 await asyncio.sleep(0.5)
         except asyncio.CancelledError:
-            pass
+            pass  # el cliente cerro la conexion
         finally:
+            # Siempre liberar la suscripcion y la conexion Redis
             await pubsub.unsubscribe(channel)
             await pubsub.close()
             await redis_client.close()
 
+    # Headers obligatorios para que el navegador y proxies no bufferen el stream SSE
     headers = {
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",

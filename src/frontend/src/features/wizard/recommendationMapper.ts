@@ -92,12 +92,17 @@ export interface ComparisonRow {
   }>
 }
 
+// Este archivo traduce la respuesta cruda del backend a lo que muestran las pantallas
+// (tabla comparativa y lista de proveedores). Es solo transformacion de datos, sin red.
+
 const unavailable = 'No disponible'
 
+// Normaliza texto para comparar sin importar mayusculas ni espacios
 function normalizeText(value: string | null | undefined) {
   return value?.trim().toLowerCase() ?? ''
 }
 
+// Formatea un numero como colones (ej. 12500 -> "₡ 12 500")
 export function formatColones(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return unavailable
@@ -109,6 +114,7 @@ export function formatColones(value: number | null | undefined) {
     .replace(/\u00A0/g, ' ')}`
 }
 
+// "fertilizante_foliar" -> "Fertilizante foliar"
 export function formatCategory(value: string | null | undefined) {
   if (!value) return unavailable
   return value
@@ -118,6 +124,7 @@ export function formatCategory(value: string | null | undefined) {
     .replace(/^\w/, (letter) => letter.toUpperCase())
 }
 
+// Traduce la banda toxicologica (color) a un nivel de riesgo legible
 export function riskFromToxicity(toxicity: string | null | undefined) {
   const value = normalizeText(toxicity)
   if (!value || value === 'no_aplica') return unavailable
@@ -128,6 +135,7 @@ export function riskFromToxicity(toxicity: string | null | undefined) {
   return formatCategory(toxicity)
 }
 
+// Unifica los nombres de campos del backend (es) con los que espera la UI
 export function normalizeProviders(providers: ProviderPayload[]): NormalizedProvider[] {
   return providers.map((provider) => {
     const locationParts = [provider.ubicacion ?? provider.location, provider.provincia, provider.canton]
@@ -146,6 +154,7 @@ export function normalizeProviders(providers: ProviderPayload[]): NormalizedProv
   })
 }
 
+// Construye una fila por producto con todos los campos de la tabla comparativa
 export function buildProductComparisons(
   recommendation: RecommendationData,
   providers: NormalizedProvider[] = [],
@@ -153,7 +162,7 @@ export function buildProductComparisons(
   const budget = recommendation.max_budget_per_liter ?? Number(recommendation.budget_range)
 
   return [...(recommendation.products ?? [])]
-    .sort((left, right) => left.rank - right.rank)
+    .sort((left, right) => left.rank - right.rank)  // ordena por ranking (1, 2, 3)
     .map((product) => {
       const productProviders = providers.filter((provider) => provider.productId === String(product.product_id))
       const cropTarget = normalizeText(product.cultivo_objetivo)
@@ -177,6 +186,7 @@ export function buildProductComparisons(
         rank: product.rank,
         productId: String(product.product_id),
         name: product.nombre_comercial ?? unavailable,
+        // La etiqueta y el color salen del ranking: 1 = mejor, 2 = alternativa, 3 = economico
         badge: product.rank === 1 ? 'Mejor opción' : product.rank === 2 ? 'Alternativa viable' : 'Más económico',
         badgeColor: product.rank === 1 ? 'green' : product.rank === 2 ? 'blue' : 'amber',
         type: formatCategory(product.categoria),
@@ -189,6 +199,7 @@ export function buildProductComparisons(
               : `${productProviders.length} proveedores`
             : unavailable,
         treatsProblem: treatsProblemValue,
+        // Marca si el precio entra en el presupuesto que puso el agricultor
         budget:
           price === null || price === undefined || Number.isNaN(price) || Number.isNaN(budget)
             ? unavailable
@@ -218,6 +229,7 @@ export function buildProductComparisons(
     })
 }
 
+// Define el color de cada celda: gris (sin dato), ambar (atencion) o verde (ok)
 function toneFor(value: string): 'ok' | 'warning' | 'muted' {
   if (value === unavailable || value === 'Sin norma SFE') return 'muted'
   if (value.includes('Revisar') || value.includes('reservas') || value.includes('fuera')) return 'warning'
@@ -225,6 +237,7 @@ function toneFor(value: string): 'ok' | 'warning' | 'muted' {
   return 'ok'
 }
 
+// Transpone los productos a filas (una por atributo) para renderizar la tabla comparativa
 export function buildComparisonRows(products: ProductComparison[]): ComparisonRow[] {
   const rows: Array<[string, keyof ProductComparison]> = [
     ['Compatible con cultivo', 'compatibility'],

@@ -1,5 +1,6 @@
-"""Prompts del Agente 4 — Sintetizador (solo texto interpretativo)."""
+"""Prompts del Agente 4 - Sintetizador (solo texto interpretativo)."""
 
+# SYSTEM_PROMPT: rol + reglas de estimacion cuando falta un dato (sobre todo el precio en colones)
 SYSTEM_PROMPT = """Eres un consultor agronómico costarricense.
 Recibirás hasta 3 productos VALIDADOS con datos de la base de datos.
 Genera justificaciones agronómicas en español.
@@ -13,10 +14,11 @@ REGLA ESTRICTA PARA PRECIO: El campo "precio_estimado" debe ser el precio típic
 Nunca generes precios menores a 500 ni mayores a 80,000. Si el precio ya viene en la base de datos, úsalo directamente.
 """
 
+# USER_PROMPT_TEMPLATE: pasa el contexto y los 3 productos validados con sus datos reales de DB
 USER_PROMPT_TEMPLATE = """Contexto del caso:
 {context_summary}
 
-Productos a recomendar (datos factuales de DB — NO modificar los IDs o nombres):
+Productos a recomendar (datos factuales de DB - NO modificar los IDs o nombres):
 {products_json}
 
 Para cada producto (ranking 1..N), devuelve JSON con clave "items":

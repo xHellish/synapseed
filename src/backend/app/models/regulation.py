@@ -43,7 +43,7 @@ class Regulation(Base, IDMixin, TimestampMixin):
         nullable=True,
     )
 
-    # Entidades/ingredientes afectados (para validación rápida)
+    # El validador legal compara el ingrediente del producto contra este texto (descarte por regla)
     sustancias_afectadas: Mapped[str | None] = mapped_column(Text, nullable=True)
     cultivos_afectados: Mapped[str | None] = mapped_column(Text, nullable=True)
 

@@ -68,12 +68,13 @@ class Product(Base, IDMixin, TimestampMixin):
     cultivo_objetivo: Mapped[str | None] = mapped_column(String(100), nullable=True)
     problema_objetivo: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
-    # Embedding vectorial (768 dims - text-embedding-004)
+    # Embedding vectorial (768 dims) para la busqueda semantica del agente investigador
     embedding: Mapped[list[float] | None] = mapped_column(
         Vector(768),
         nullable=True,
     )
 
+    # Indices para acelerar los filtros mas usados en las consultas
     __table_args__ = (
         Index("ix_products_categoria_estado", "categoria", "estado"),
         Index("ix_products_ingrediente_activo", "ingrediente_activo"),

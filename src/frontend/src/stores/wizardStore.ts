@@ -28,18 +28,20 @@ interface WizardState {
   reset: () => void
 }
 
+// Store global del wizard: guarda el paso actual y los datos del caso entre pantallas.
+// persist() lo respalda en localStorage para no perder el progreso al recargar.
 export const useWizardStore = create<WizardState>()(
   persist(
     (set) => ({
       step: 1,
       data: {},
       setStep: (s) => set({ step: s }),
-      next: () => set((state) => ({ step: Math.min(4, state.step + 1) })),
-      prev: () => set((state) => ({ step: Math.max(1, state.step - 1) })),
-      update: (d) => set((state) => ({ data: { ...state.data, ...d } })),
-      reset: () => set({ step: 1, data: {} }),
+      next: () => set((state) => ({ step: Math.min(4, state.step + 1) })),  // avanza sin pasar de 4
+      prev: () => set((state) => ({ step: Math.max(1, state.step - 1) })),  // retrocede sin bajar de 1
+      update: (d) => set((state) => ({ data: { ...state.data, ...d } })),  // fusiona datos nuevos con los previos
+      reset: () => set({ step: 1, data: {} }),  // limpia todo (al terminar o cancelar el caso)
     }),
-    { name: 'synapseed-wizard' },
+    { name: 'synapseed-wizard' },  // clave en localStorage
   ),
 )
 

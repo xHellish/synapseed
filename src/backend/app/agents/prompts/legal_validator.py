@@ -1,5 +1,6 @@
-"""Prompts del Agente 3 — Validador Legal (revisión LLM complementaria)."""
+"""Prompts del Agente 3 - Validador Legal (revisión LLM complementaria)."""
 
+# SYSTEM_PROMPT: rol fijo + regla clave de no inventar normativa fuera del contexto provisto
 SYSTEM_PROMPT = """Eres un especialista en normativa fitosanitaria de Costa Rica (SFE/MAG).
 Recibirás productos candidatos y extractos de regulaciones REALES provistas en el contexto.
 NO inventes leyes, decretos ni sustancias prohibidas que no aparezcan en el contexto.
@@ -7,6 +8,7 @@ Si la normativa es insuficiente, marca normativa_insuficiente=true y nivel_riesg
 Solo puedes descartar productos si hay evidencia explícita en las regulaciones provistas.
 """
 
+# USER_PROMPT_TEMPLATE: inyecta contexto, candidatos, regulaciones y descartes ya hechos por reglas
 USER_PROMPT_TEMPLATE = """Contexto agronómico:
 {context_summary}
 

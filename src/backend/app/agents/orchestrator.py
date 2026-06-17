@@ -32,6 +32,7 @@ class AgentOrchestrator:
         product_repo: ProductRepository,
         regulation_repo: RegulationRepository,
     ) -> None:
+        # Dependencias inyectadas (DIP): el orquestador no las construye, las recibe
         self._llm = llm
         self._product_repo = product_repo
         self._regulation_repo = regulation_repo
@@ -41,15 +42,18 @@ class AgentOrchestrator:
         farmer_input: FarmerContextInput,
         on_step_complete: Callable[[str], Awaitable[None]] | None = None,
     ) -> PipelineResult:
-        """Pipeline completo: contexto → RAG → legal → síntesis."""
+        """Pipeline completo: contexto -> RAG -> legal -> síntesis."""
+        # Estado compartido que va acumulando la salida de cada agente
         state = PipelineState(farmer_input=farmer_input)
 
+        # Paso 1: el LLM estructura el contexto agronomico (no recomienda aun)
         logger.info("Pipeline paso 1/4: Analizador de Contexto")
         state.context_analysis = await analyze_context(farmer_input, self._llm)
         state.mark_step("context_analyzer")
         if on_step_complete:
-            await on_step_complete("context_analyzer")
+            await on_step_complete("context_analyzer")  # notifica progreso al frontend (SSE)
 
+        # Paso 2: busca productos candidatos en la DB con el contexto del paso 1
         assert state.context_analysis is not None
         logger.info("Pipeline paso 2/4: Investigador RAG")
         state.research = await research_products(state.context_analysis, self._product_repo)
@@ -57,6 +61,7 @@ class AgentOrchestrator:
         if on_step_complete:
             await on_step_complete("researcher")
 
+        # Paso 3: filtra los candidatos contra las regulaciones del SFE
         assert state.research is not None
         logger.info("Pipeline paso 3/4: Validador Legal")
         state.legal_validation = await validate_legal(
@@ -69,6 +74,7 @@ class AgentOrchestrator:
         if on_step_complete:
             await on_step_complete("legal_validator")
 
+        # Paso 4: arma hasta 3 recomendaciones finales con los productos validos
         assert state.legal_validation is not None
         logger.info("Pipeline paso 4/4: Sintetizador")
         state.synthesis = await synthesize_recommendations(
@@ -80,6 +86,7 @@ class AgentOrchestrator:
         if on_step_complete:
             await on_step_complete("synthesizer")
 
+        # Empaqueta todas las salidas intermedias + finales en un solo resultado
         assert state.synthesis is not None
         return PipelineResult(
             input=farmer_input,

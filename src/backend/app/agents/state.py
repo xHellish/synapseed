@@ -15,12 +15,13 @@ from app.schemas.farmer_input import FarmerContextInput
 class PipelineState:
     """Estado acumulado entre nodos (compatible con futura migración a LangGraph)."""
 
-    farmer_input: FarmerContextInput
-    context_analysis: ContextAnalysisOutput | None = None
-    research: ResearchOutput | None = None
-    legal_validation: LegalValidationOutput | None = None
-    synthesis: SynthesisOutput | None = None
-    steps_completed: list[str] = field(default_factory=list)
+    farmer_input: FarmerContextInput  # entrada original del agricultor (no se modifica)
+    context_analysis: ContextAnalysisOutput | None = None  # salida del agente 1 (analizador)
+    research: ResearchOutput | None = None  # salida del agente 2 (investigador RAG)
+    legal_validation: LegalValidationOutput | None = None  # salida del agente 3 (validador legal)
+    synthesis: SynthesisOutput | None = None  # salida del agente 4 (sintetizador)
+    steps_completed: list[str] = field(default_factory=list)  # nombres de los pasos ya ejecutados
 
     def mark_step(self, step: str) -> None:
+        # Registra que un paso del pipeline termino (sirve para progreso/SSE)
         self.steps_completed.append(step)

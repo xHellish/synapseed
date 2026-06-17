@@ -11,6 +11,8 @@ from app.repositories import AuditRepository, ZoneRepository
 router = APIRouter(prefix="/zones", tags=["zones"])
 
 
+# Tablas de equivalencia: el frontend usa nombres/rangos, la DB guarda numeros (lat/lon, %, °C).
+# Estos diccionarios traducen en ambos sentidos.
 COORDINATES_TO_LOCATION = {
     (9.86, -83.92): "Cartago, Costa Rica",
     (10.02, -84.21): "Alajuela, Costa Rica",
@@ -45,6 +47,7 @@ TEMP_STR_TO_VAL = {
 }
 
 
+# Nombre de provincia -> coordenadas aproximadas (para guardar lat/lon en la DB)
 def map_location_to_coords(location_str: str | None) -> tuple[float | None, float | None]:
     if not location_str:
         return None, None
@@ -66,11 +69,13 @@ def map_location_to_coords(location_str: str | None) -> tuple[float | None, floa
     return 9.93, -84.09
 
 
+# Coordenadas -> nombre de provincia mas cercana (para mostrar en el frontend)
 def map_coords_to_location(lat: float | None, lon: float | None) -> str:
     if lat is None or lon is None:
         return "Costa Rica"
     closest_dist = float("inf")
     closest_name = "Costa Rica"
+    # Distancia euclidiana simple: elige la provincia cuyo punto este mas cerca
     for (plat, plon), name in COORDINATES_TO_LOCATION.items():
         dist = (float(lat) - plat) ** 2 + (float(lon) - plon) ** 2
         if dist < closest_dist:
@@ -81,6 +86,7 @@ def map_coords_to_location(lat: float | None, lon: float | None) -> str:
     return f"Costa Rica ({float(lat):.4f}, {float(lon):.4f})"
 
 
+# "Alta"/"Media"/... -> numero (%) para guardar; acepta tambien un numero directo
 def map_humidity_to_val(hum_str: str | float | None) -> float | None:
     if hum_str is None:
         return None
@@ -94,6 +100,7 @@ def map_humidity_to_val(hum_str: str | float | None) -> float | None:
     return HUMIDITY_STR_TO_VAL.get(cleaned, None)
 
 
+# Numero (%) -> etiqueta de humedad para mostrar al usuario
 def map_val_to_humidity_str(hum_val: float | None) -> str:
     if hum_val is None:
         return "Media"
@@ -109,6 +116,7 @@ def map_val_to_humidity_str(hum_val: float | None) -> str:
     return "Muy alta"
 
 
+# Rango "20°C - 25°C" -> numero (punto medio) para guardar; tolera variantes sin °/espacios
 def map_temp_to_val(temp_str: str | float | None) -> float | None:
     if temp_str is None:
         return None
@@ -128,6 +136,7 @@ def map_temp_to_val(temp_str: str | float | None) -> float | None:
     return None
 
 
+# Numero (°C) -> etiqueta de rango de temperatura para mostrar al usuario
 def map_val_to_temp_str(temp_val: float | None) -> str:
     if temp_val is None:
         return "20°C - 25°C"
@@ -171,6 +180,7 @@ def clean_payload(payload: dict) -> dict:
     return cleaned
 
 
+# Lista las zonas del usuario, convirtiendo los numeros de la DB a etiquetas legibles
 @router.get("", summary="Listar zonas del usuario")
 async def list_zones(
     skip: int = Query(0, ge=0),
@@ -224,6 +234,7 @@ async def get_zone(
     }
 
 
+# Crea una zona: valida nombre, evita duplicados por usuario y sanitiza el payload
 @router.post("", status_code=status.HTTP_201_CREATED, summary="Crear una zona")
 async def create_zone(
     payload: dict,

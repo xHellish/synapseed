@@ -1,4 +1,4 @@
-"""Agente 1 — Analizador de Contexto."""
+"""Agente 1 - Analizador de Contexto."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ async def analyze_context(
     llm: LLMClient,
 ) -> ContextAnalysisOutput:
     """Estructura el contexto agronómico sin recomendar productos."""
+    # Rellena la plantilla del prompt con los datos del caso (valores por defecto si faltan)
     user_prompt = USER_PROMPT_TEMPLATE.format(
         crop=farmer_input.crop,
         crop_stage=farmer_input.crop_stage,
@@ -28,6 +29,7 @@ async def analyze_context(
         water_quality=farmer_input.water_quality or "no especificado",
         zone_id=farmer_input.zone_id if farmer_input.zone_id is not None else "ninguna",
     )
+    # Pide al LLM una respuesta JSON validada contra el schema ContextAnalysisOutput
     return await llm.complete_json(
         system_prompt=SYSTEM_PROMPT,
         user_prompt=user_prompt,

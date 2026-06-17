@@ -1,16 +1,16 @@
-"""SynapSeed — Application entrypoint (FastAPI app factory).
+"""SynapSeed - Application entrypoint (FastAPI app factory).
 
 Expone los siguientes endpoints:
 
-* ``/api/v1/health``          → health check
-* ``/api/v1/auth/register``   → registro de nuevo usuario
-* ``/api/v1/auth/login``      → login (JWT)
-* ``/api/v1/users/me``        → perfil autenticado
-* ``/api/v1/zones``           → CRUD de zonas agrícolas
-* ``/api/v1/catalogs``        → catálogos (cultivos, suelos)
-* ``/api/v1/recommendations`` → solicitud y consulta de recomendaciones
-* ``/docs``                   → Swagger UI (interactivo)
-* ``/redoc``                  → ReDoc
+* ``/api/v1/health``          -> health check
+* ``/api/v1/auth/register``   -> registro de nuevo usuario
+* ``/api/v1/auth/login``      -> login (JWT)
+* ``/api/v1/users/me``        -> perfil autenticado
+* ``/api/v1/zones``           -> CRUD de zonas agrícolas
+* ``/api/v1/catalogs``        -> catálogos (cultivos, suelos)
+* ``/api/v1/recommendations`` -> solicitud y consulta de recomendaciones
+* ``/docs``                   -> Swagger UI (interactivo)
+* ``/redoc``                  -> ReDoc
 """
 
 from __future__ import annotations
@@ -33,6 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# Lifespan: el codigo antes del `yield` corre al arrancar; el de despues, al apagar
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
     """Ciclo de vida de la app: startup y shutdown."""
@@ -127,7 +128,7 @@ def create_app() -> FastAPI:
         license_info={"name": "Proprietary"},
     )
 
-    # --- CORS ---
+    # CORS: permite que el frontend (otro origen) consuma la API
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.backend_cors_origins,
@@ -136,8 +137,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # --- Routers: api_router (auth + users v2 Supabase) + routers legacy ---
-    app.include_router(api_router, prefix=settings.api_v1_prefix)
+    # Registra todos los routers bajo el prefijo /api/v1
+    app.include_router(api_router, prefix=settings.api_v1_prefix)  # auth + users
 
     from app.api.v1 import catalogs, health, recommendations, zones
 
@@ -146,7 +147,7 @@ def create_app() -> FastAPI:
     app.include_router(catalogs.router, prefix=settings.api_v1_prefix)
     app.include_router(recommendations.router, prefix=settings.api_v1_prefix)
 
-    # --- Root redirect metadata ---
+    # Endpoint raiz: metadatos basicos y enlaces a la documentacion
     @app.get("/", tags=["meta"], include_in_schema=False)
     async def root() -> dict:
         return {
@@ -157,7 +158,7 @@ def create_app() -> FastAPI:
             "api": settings.api_v1_prefix,
         }
 
-    # --- Schema OpenAPI personalizado (Bearer JWT) ---
+    # Reemplaza el schema OpenAPI por el nuestro (agrega el boton Authorize con Bearer JWT)
     app.openapi = custom_openapi(app)  # type: ignore[method-assign]
 
     return app

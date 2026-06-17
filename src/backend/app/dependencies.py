@@ -50,6 +50,8 @@ async def get_bearer_token(
     return credentials.credentials
 
 
+# Atajos para inyectar en los endpoints: en vez de repetir Depends(...) en cada firma,
+# se anota el parametro con estos tipos (ej. `current_user: CurrentUser`).
 CurrentUser = Annotated[User, Depends(get_current_user)]
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 BearerToken = Annotated[str, Depends(get_bearer_token)]

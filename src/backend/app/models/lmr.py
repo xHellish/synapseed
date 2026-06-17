@@ -13,9 +13,9 @@ class Lmr(Base, IDMixin, TimestampMixin):
 
     __tablename__ = "lmrs"
 
-    plaguicida: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    clase: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    cultivo: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
-    lmr_nac: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    plaguicida: Mapped[str] = mapped_column(String(255), nullable=False, index=True)  # ingrediente activo
+    clase: Mapped[str | None] = mapped_column(String(255), nullable=True)  # categoria del plaguicida
+    cultivo: Mapped[str] = mapped_column(String(500), nullable=False, index=True)  # alimenta el dropdown de cultivos
+    lmr_nac: Mapped[str | None] = mapped_column(String(100), nullable=True)  # limite maximo de residuo nacional
 
     __repr__ = repr_columns("id", "plaguicida", "cultivo", "lmr_nac")

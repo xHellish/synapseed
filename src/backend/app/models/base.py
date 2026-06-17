@@ -9,28 +9,31 @@ from sqlalchemy import DateTime, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
+# Clase base de SQLAlchemy: todos los modelos ORM heredan de aqui
 class Base(DeclarativeBase):
     """Clase base para todos los modelos."""
 
     pass
 
 
+# Mixin reutilizable: agrega marcas de tiempo que la DB llena sola
 class TimestampMixin:
     """Mixin que agrega created_at y updated_at automáticos."""
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        server_default=func.now(),
+        server_default=func.now(),  # la DB pone la fecha al insertar
         nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
-        onupdate=func.now(),
+        onupdate=func.now(),  # la DB la actualiza en cada UPDATE
         nullable=False,
     )
 
 
+# Mixin reutilizable: agrega la PK entera autoincremental (id)
 class IDMixin:
     """Mixin que agrega id autoincremental como PK."""
 
@@ -39,6 +42,7 @@ class IDMixin:
 
 def repr_columns(*cols: str) -> Any:
     """Helper para generar __repr__ bonito."""
+    # Devuelve una funcion __repr__ que muestra solo las columnas indicadas
     def _repr(self) -> str:
         items = []
         for c in cols:

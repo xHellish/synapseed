@@ -11,6 +11,8 @@ from app.services.auth_service import AuthError, change_user_password, update_us
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+# Endpoints del perfil propio. CurrentUser es una dependencia que exige token valido,
+# asi que estos endpoints solo operan sobre el usuario autenticado.
 @router.get(
     "/me",
     response_model=UserResponse,

@@ -25,6 +25,7 @@ async def publish_progress(
     error_message: str | None = None,
 ) -> None:
     """Publica el progreso del ticket en un canal de Redis pub/sub."""
+    # El endpoint SSE escucha este canal y reenvia cada mensaje al navegador
     try:
         from app.core.redis import get_redis_client
         import json
@@ -43,12 +44,14 @@ async def publish_progress(
 async def async_run_recommendation_pipeline(ticket_id: str) -> None:
     """Procesa una recomendación asíncronamente en el motor SQLAlchemy."""
     async with get_db_session() as db:
+        # Busca el registro PENDING que creo el endpoint /request
         recommendations = RecommendationRepository(db)
         rec = await recommendations.get_by_ticket_id(ticket_id)
         if not rec:
             logger.error(f"Recomendación no encontrada para el ticket: {ticket_id}")
             return
 
+        # Pasa a PROCESSING y avisa al frontend que arranco
         logger.info(f"Actualizando estado a PROCESSING para ticket {ticket_id}")
         await recommendations.update_status(
             recommendation=rec,
@@ -58,7 +61,7 @@ async def async_run_recommendation_pipeline(ticket_id: str) -> None:
         await publish_progress(ticket_id, "processing", "context_analyzer")
 
         try:
-            # Construir el context input a partir de la recomendación de la DB
+            # Reconstruye la entrada del pipeline a partir de los datos guardados
             farmer_input = FarmerContextInput(
                 crop=rec.crop,
                 crop_stage=rec.crop_stage,
@@ -72,6 +75,7 @@ async def async_run_recommendation_pipeline(ticket_id: str) -> None:
                 water_quality=rec.water_quality,
             )
 
+            # Crea las dependencias reales y las inyecta en el orquestador (DIP)
             logger.info("Instanciando cliente LLM y repositorios...")
             llm = OpenRouterLLMClient()
             product_repo = SqlAlchemyProductRepository(db)
@@ -83,6 +87,7 @@ async def async_run_recommendation_pipeline(ticket_id: str) -> None:
                 regulation_repo=regulation_repo,
             )
 
+            # Callback que el orquestador llama al terminar cada paso (actualiza DB + SSE)
             async def progress_callback(step: str) -> None:
                 await recommendations.update_status(
                     recommendation=rec,
@@ -91,17 +96,18 @@ async def async_run_recommendation_pipeline(ticket_id: str) -> None:
                 )
                 await publish_progress(ticket_id, "processing", step)
 
+            # Corre los 4 agentes en orden
             logger.info(f"Ejecutando el pipeline de agentes para ticket {ticket_id}")
             result = await orchestrator.run(farmer_input, on_step_complete=progress_callback)
 
-            # Limpiar recomendaciones de productos previas (por si acaso se re-ejecuta)
+            # Borra productos previos por si el ticket se reprocesa
             await recommendations.remove_products(rec.id)
 
-            # Insertar nuevos productos recomendados mapeando tipos
+            # Convierte cada recomendacion del pipeline a fila de DB (saneando "no_disponible")
             import json as _json
             products_to_add = []
             for item in result.synthesis.recomendaciones:
-                # Tratar valores que vengan como 'no_disponible' o incompatibles con base de datos
+                # "no_disponible" no es numerico: lo convertimos a None para la columna
                 precio_estimado = None
                 if item.precio is not None and item.precio != "no_disponible":
                     try:
@@ -129,16 +135,18 @@ async def async_run_recommendation_pipeline(ticket_id: str) -> None:
                     "recomendacion_uso_general": item.recomendacion_uso_general or None,
                 })
 
+            # Guarda los 3 productos en una sola transaccion
             if products_to_add:
                 logger.info(f"Guardando {len(products_to_add)} productos recomendados en base de datos...")
                 await recommendations.add_products_bulk(rec.id, products_to_add)
 
-            # Marcar la recomendación como completada
+            # COMPLETED: el SSE avisa al frontend que ya puede mostrar el resultado
             logger.info(f"Marcando ticket {ticket_id} como COMPLETED")
             await recommendations.mark_completed(rec)
             await publish_progress(ticket_id, "completed")
 
         except Exception as exc:
+            # Cualquier fallo deja la recomendacion en FAILED con el mensaje de error
             logger.exception(f"Error procesando el ticket {ticket_id}: {exc}")
             logger.info(f"Marcando ticket {ticket_id} como FAILED")
             try:
@@ -149,11 +157,13 @@ async def async_run_recommendation_pipeline(ticket_id: str) -> None:
             await publish_progress(ticket_id, "failed", error_message=str(exc))
 
 
+# Tarea Celery: el worker la ejecuta de forma sincrona, asi que abrimos un event loop
 @celery_app.task(name="app.workers.tasks.generate_recommendation")
 def generate_recommendation(ticket_id: str) -> None:
     """Punto de entrada síncrono para Celery que levanta el event loop asíncrono."""
     logger.info(f"Tarea Celery recibida: procesar recomendación para ticket {ticket_id}")
     try:
+        # asyncio.run() corre el pipeline async dentro del worker sincrono de Celery
         asyncio.run(async_run_recommendation_pipeline(ticket_id))
     except Exception as exc:
         logger.exception(f"Fallo crítico ejecutando la tarea de Celery para ticket {ticket_id}: {exc}")

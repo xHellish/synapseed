@@ -179,7 +179,7 @@ export function CaseWizardStep3() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
-  const isDemo = !id || id === 'demo'
+  const isDemo = !id || id === 'demo'  // modo demo: muestra datos de ejemplo sin backend
 
   useEffect(() => {
     setStep(3)
@@ -201,6 +201,7 @@ export function CaseWizardStep3() {
     enabled: isDemo || !!token,
   })
 
+  // Los proveedores solo se piden cuando la recomendacion ya esta completa
   const { data: providersPayload = [] } = useQuery<ProviderPayload[]>({
     queryKey: ['providers', id],
     queryFn: async () => {
@@ -234,6 +235,8 @@ export function CaseWizardStep3() {
     }
   }, [recommendation])
 
+  // Mientras la recomendacion esta pending/processing, consulta el detalle cada segundo
+  // (polling) y actualiza el cache; se detiene en cuanto pasa a completed/failed.
   useEffect(() => {
     if (isDemo || !id || !token || !recommendation) return
     if (recommendation.status !== 'pending' && recommendation.status !== 'processing') return
@@ -244,12 +247,12 @@ export function CaseWizardStep3() {
           headers: { Authorization: `Bearer ${token}` },
         })
         .then((response) => {
-          queryClient.setQueryData(['recommendation', id], response.data)
+          queryClient.setQueryData(['recommendation', id], response.data)  // refresca la UI
         })
         .catch(() => undefined)
     }, 1000)
 
-    return () => clearInterval(interval)
+    return () => clearInterval(interval)  // limpia el intervalo al desmontar o cambiar de estado
   }, [id, token, isDemo, recommendation, queryClient])
 
   if (isLoading) {

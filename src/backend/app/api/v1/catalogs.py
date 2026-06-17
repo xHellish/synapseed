@@ -67,15 +67,16 @@ _BUDGETS = [
 ]
 
 
+# Cultivos del dropdown: salen de la tabla lmrs (no hardcodeados). Se sirven del cache.
 @router.get("/crops", summary="Lista de cultivos")
 async def list_crops(db: AsyncSession = Depends(get_db)) -> list[dict]:
     if _crops_cache:
-        return _crops_cache
+        return _crops_cache  # caso normal: respuesta instantanea desde memoria
     # Fallback: query en vivo si el cache no se llenó en startup
     from app.repositories.lmr_repository import LmrRepository
     lmr_repo = LmrRepository(db)
     db_crops = await lmr_repo.get_unique_crops()
-    return db_crops or _CROPS
+    return db_crops or _CROPS  # ultimo recurso: lista estatica
 
 
 @router.get("/crop-stages", summary="Etapas de cultivo")

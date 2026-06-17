@@ -47,6 +47,7 @@ def _local_auth_enabled() -> bool:
 
 
 def _build_local_session(user: User) -> SupabaseSession:
+    # Arma una sesion con un JWT firmado localmente (cuando no hay Supabase)
     settings = get_settings()
     return SupabaseSession(
         access_token=create_access_token(subject=str(user.id)),
@@ -58,6 +59,7 @@ def _build_local_session(user: User) -> SupabaseSession:
 
 
 def _verify_local_password(user: User, password: str) -> SupabaseSession | None:
+    # Compara la contrasena contra el hash bcrypt local; devuelve sesion si coincide
     if user.password_hash and verify_password(password, user.password_hash):
         return _build_local_session(user)
     return None
@@ -88,6 +90,7 @@ async def register_user(db: AsyncSession, data: UserRegister) -> User:
     Funciona tanto si Supabase tiene confirmación de email habilitada como deshabilitada.
     Si está habilitada, el usuario se guarda en la DB con ``is_verified=False`` y sin sesión.
     """
+    # Verifica que no exista ya un usuario con ese email o esa cedula
     existing = await db.execute(
         select(User).where(
             or_(User.email == data.email, User.identification == data.identification),
@@ -99,6 +102,7 @@ async def register_user(db: AsyncSession, data: UserRegister) -> User:
             raise AuthError("El correo electrónico ya está registrado", status_code=409)
         raise AuthError("La cédula ya está registrada", status_code=409)
 
+    # Modo local (solo desarrollo): guarda el hash bcrypt directo en la DB, sin Supabase
     if _local_auth_enabled():
         user = User(
             auth_user_id=None,
@@ -114,6 +118,7 @@ async def register_user(db: AsyncSession, data: UserRegister) -> User:
         await db.refresh(user)
         return user
 
+    # Modo normal: las credenciales se crean en Supabase Auth
     try:
         result: SupabaseSignupResult = await sign_up(
             data.email,
@@ -127,6 +132,7 @@ async def register_user(db: AsyncSession, data: UserRegister) -> User:
     except SupabaseAuthError as exc:
         raise AuthError(exc.message, status_code=exc.status_code) from exc
 
+    # El perfil (nombre, cedula, telefono) vive en nuestra tabla users, ligado por auth_user_id
     user = User(
         auth_user_id=result.auth_user_id,
         email=data.email,
@@ -149,6 +155,7 @@ async def authenticate_user(db: AsyncSession, data: UserLogin) -> tuple[User, Su
       si Supabase no los tiene, se verifica contra el hash local.
     - Usuarios registrados via Supabase Auth se autentican normalmente.
     """
+    # El login es por cedula: primero resolvemos el email asociado en la tabla users
     user = await _get_user_by_identification(db, data.identification)
     if user is None:
         raise AuthError("Cédula o contraseña incorrectos", status_code=401)
@@ -165,7 +172,7 @@ async def authenticate_user(db: AsyncSession, data: UserLogin) -> tuple[User, Su
     # Intentar Supabase Auth primero
     try:
         session = await sign_in_with_password(user.email, data.password)
-        # Vincular auth_user_id si no estaba seteado
+        # Vincular auth_user_id si no estaba seteado (usuarios viejos migrados)
         if user.auth_user_id is None:
             user.auth_user_id = session.auth_user_id
             await db.commit()
@@ -204,7 +211,7 @@ async def resolve_user_from_token(db: AsyncSession, access_token: str) -> User:
     2. **JWT de Supabase**: emitido por Supabase Auth.
        Se valida contra la API de Supabase ``/auth/v1/user``.
     """
-    # --- Intentar decodificar como JWT local primero ---
+    # Intentar decodificar como JWT local primero
     from app.core.security import decode_access_token as _local_decode
 
     try:
@@ -227,7 +234,7 @@ async def resolve_user_from_token(db: AsyncSession, access_token: str) -> User:
         # No es un JWT local válido → intentar con Supabase
         pass
 
-    # --- Intentar validar como JWT de Supabase ---
+    # Si no era un JWT local valido, lo validamos como token de Supabase
     try:
         auth_user = await supabase_get_user(access_token)
     except SupabaseAuthError as exc:

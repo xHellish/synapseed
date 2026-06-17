@@ -1,5 +1,7 @@
 import axios from 'axios'
 
+// Convierte el campo `detail` de un error de FastAPI (string, lista de validacion
+// o objeto) en un mensaje plano para mostrar al usuario
 function formatDetail(detail: unknown): string | null {
   if (!detail) return null
   if (typeof detail === 'string') return detail
@@ -19,13 +21,14 @@ function formatDetail(detail: unknown): string | null {
   return null
 }
 
+// Elige el mensaje de error mas util: el del backend, uno de red, o el fallback dado
 export function getApiErrorMessage(
   error: unknown,
   fallback: string,
   networkFallback = 'No se pudo conectar con el backend. Verifique que el servicio esté corriendo en localhost:8000.',
 ) {
-  if (!axios.isAxiosError(error)) return fallback
-  if (!error.response) return networkFallback
+  if (!axios.isAxiosError(error)) return fallback  // no es un error HTTP de axios
+  if (!error.response) return networkFallback  // no hubo respuesta = backend caido/sin red
 
   return formatDetail(error.response.data?.detail) ?? fallback
 }

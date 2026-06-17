@@ -26,14 +26,14 @@ class User(Base, IDMixin, TimestampMixin):
 
     __tablename__ = "users"
 
-    auth_user_id: Mapped[UUID | None] = mapped_column(Uuid, unique=True, nullable=True, index=True)
+    auth_user_id: Mapped[UUID | None] = mapped_column(Uuid, unique=True, nullable=True, index=True)  # liga con auth.users de Supabase
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
-    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)  # solo para el fallback de auth local
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    identification: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
+    identification: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)  # cedula, se usa para el login
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
-    is_verified: Mapped[bool] = mapped_column(default=False, nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)  # borrado logico (soft delete)
+    is_verified: Mapped[bool] = mapped_column(default=False, nullable=False)  # email confirmado en Supabase
 
     # Relaciones
     zones: Mapped[list["Zone"]] = relationship("Zone", back_populates="user", cascade="all, delete-orphan")

@@ -1,9 +1,5 @@
-// ============================================
-// SynapSeed — App root component
-// ============================================
-// En la fase 0 es un placeholder. La lógica real vive en `@/app/router`.
-// Este componente se mantiene por compatibilidad con setups de testing
-// (algunos tests montan <App /> directamente).
+// Componente placeholder. La app real se enruta desde `@/app/router` (ver main.tsx).
+// Se mantiene porque algunos tests montan <App /> directamente.
 
 export function App() {
   return (

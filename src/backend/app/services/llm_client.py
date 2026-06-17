@@ -32,6 +32,8 @@ class LLMError(Exception):
     """Error al invocar o parsear respuesta del LLM."""
 
 
+# Interfaz abstracta (DIP): los agentes dependen de esto, no de OpenRouter directamente.
+# Permite intercambiar la implementacion real por un mock en tests sin gastar tokens.
 class LLMClient(ABC):
     """Contrato mockeable para todos los agentes."""
 
@@ -60,6 +62,7 @@ def _extract_json(text: str) -> dict[str, Any]:
     text = text.strip()
     # Limpiar tokens de padding que algunos modelos gratuitos emiten
     text = re.sub(r"<\|?pad\|?>", "", text, flags=re.IGNORECASE)
+    # Si el modelo envolvio el JSON en ```json ... ```, extraemos solo el contenido
     fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
     if fence:
         text = fence.group(1).strip()
@@ -72,11 +75,13 @@ def _extract_json(text: str) -> dict[str, Any]:
     return parsed
 
 
+# Implementacion real: habla con OpenRouter via la libreria de OpenAI (compatible)
 class OpenRouterLLMClient(LLMClient):
     """Implementación production-ready contra OpenRouter."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
+        # Cliente de chat configurado con el modelo, la API key y la base URL de OpenRouter
         self._chat = ChatOpenAI(
             model=self._settings.openrouter_chat_model,
             openai_api_key=self._settings.openrouter_api_key,
@@ -93,6 +98,7 @@ class OpenRouterLLMClient(LLMClient):
         user_prompt: str,
         response_model: type[T],
     ) -> T:
+        # Reintenta con backoff exponencial si el JSON sale mal o no valida contra el schema
         @retry(
             retry=retry_if_exception_type((LLMError, ValidationError)),
             stop=stop_after_attempt(self._max_attempts),
@@ -100,6 +106,7 @@ class OpenRouterLLMClient(LLMClient):
             reraise=True,
         )
         async def _invoke() -> T:
+            # Inyectamos el schema JSON esperado para forzar una respuesta estructurada
             json_instruction = (
                 "Responde ÚNICAMENTE con un objeto JSON válido, sin markdown ni texto extra. "
                 f"Debe cumplir el schema: {response_model.model_json_schema()}"
@@ -117,6 +124,7 @@ class OpenRouterLLMClient(LLMClient):
             content = response.content
             if not isinstance(content, str):
                 raise LLMError("Respuesta vacía o no textual del LLM.")
+            # Limpia el texto, extrae el JSON y lo valida contra el modelo Pydantic pedido
             data = _extract_json(content)
             return response_model.model_validate(data)
 
@@ -142,14 +150,16 @@ class OpenRouterLLMClient(LLMClient):
         return content.strip()
 
 
+# Implementacion falsa para tests: devuelve respuestas fijas sin llamar a ninguna API
 class MockLLMClient(LLMClient):
     """Cliente determinista para tests unitarios."""
 
     def __init__(self, responses: dict[str, Any] | None = None) -> None:
-        self._responses = responses or {}
-        self.calls: list[dict[str, str]] = []
+        self._responses = responses or {}  # respuestas registradas por palabra clave
+        self.calls: list[dict[str, str]] = []  # historial de llamadas (para asserts en tests)
 
     def register(self, key: str, payload: dict[str, Any]) -> None:
+        # Asocia una respuesta a una palabra clave que debe aparecer en el prompt
         self._responses[key] = payload
 
     async def complete_json(
