@@ -33,40 +33,49 @@ const DEMO_RECOMMENDATION: RecommendationData = {
       rank: 1,
       product_id: 1,
       nombre_comercial: 'FungiShield Pro',
-      justification: 'Mejor opción para el contexto indicado.',
-      dosis: 'Aplicación foliar',
+      justification: 'Mejor opción para el contexto indicado por su alta eficacia sistémica contra hongos foliares en tomate.',
+      dosis: '1.5 L/ha en aplicación foliar',
       precio_estimado: 10000,
       toxicidad: 'azul',
       intervalo_seguridad: 3,
       categoria: 'Fungicida Sistémico',
       cultivo_objetivo: 'Tomate',
       problema_objetivo: 'Hongo en las hojas',
+      ventajas: ['Amplio espectro sistémico', 'Residualidad de 14 días', 'Registrado SFE para tomate'],
+      riesgos: ['Respetar intervalo de seguridad de 3 días', 'Rotar modo de acción para evitar resistencia'],
+      recomendacion_uso_general: 'Aplicar en las horas de menor temperatura. Usar equipo de protección personal (EPP) según etiqueta SFE.',
     },
     {
       rank: 2,
       product_id: 2,
       nombre_comercial: 'AgriProtect Plus',
-      justification: 'Alternativa viable cuando se requiere producto de contacto.',
-      dosis: 'Aplicación foliar',
+      justification: 'Alternativa viable cuando se requiere producto de contacto con menor costo por hectárea.',
+      dosis: '2 L/ha en aplicación foliar',
       precio_estimado: 7000,
       toxicidad: 'azul',
       intervalo_seguridad: 5,
       categoria: 'Fungicida de contacto',
       cultivo_objetivo: 'Tomate',
       problema_objetivo: 'Hongo en las hojas',
+      ventajas: ['Precio accesible', 'Buen control preventivo', 'Compatible con otros fungicidas'],
+      riesgos: ['Requiere mayor frecuencia de aplicación', 'Sensible al lavado por lluvia'],
+      recomendacion_uso_general: 'Ideal como tratamiento preventivo antes de períodos lluviosos. Aplicar cada 7-10 días.',
     },
     {
       rank: 3,
       product_id: 3,
       nombre_comercial: 'EcoFungi Natural',
-      justification: 'Opción orgánica con menor riesgo ambiental.',
-      dosis: 'Requiere más aplicaciones',
+      justification: 'Opción orgánica con menor riesgo ambiental, apta para producción con certificación.',
+      dosis: '3-4 aplicaciones semanales según severidad',
       precio_estimado: 10000,
       toxicidad: 'verde',
       intervalo_seguridad: 1,
       categoria: 'Fungicida orgánico',
       cultivo_objetivo: 'Tomate',
       problema_objetivo: 'Hongo en las hojas',
+      ventajas: ['Banda verde (mínima toxicidad)', 'Intervalo de seguridad de 1 día', 'Apto para producción orgánica'],
+      riesgos: ['Eficacia menor en infestaciones severas', 'Mayor frecuencia de aplicación necesaria'],
+      recomendacion_uso_general: 'Usar en etapas tempranas o como complemento de un programa integrado. Consultar agrónomo certificado.',
     },
   ],
 }
@@ -139,6 +148,9 @@ function ProductCard({ product }: { product: ReturnType<typeof buildProductCompa
         {product.badge}
       </span>
       <h3 className="mt-12 text-2xl font-bold text-[#111827]">{product.name}</h3>
+      {product.registrante && product.registrante !== 'No disponible' && (
+        <p className="mt-1.5 text-base font-semibold text-[#6B7280]">Registrante: {product.registrante}</p>
+      )}
       <dl className="mt-5 space-y-4 text-xl leading-7">
         <div>
           <dt className="font-semibold text-[#6B7280]">Tipo</dt>
@@ -259,7 +271,12 @@ export function CaseWizardStep3() {
   if (isError && !isDemo) {
     return (
       <AppLayout>
-        <section className="max-w-[900px]">
+        <section className="max-w-[1140px]">
+          <PageHeader
+            title="Recomendaciones de productos"
+            subtitle="Revise las opciones recomendadas basadas en su contexto"
+            className="mb-5"
+          />
           <CaseStepper step={3} />
           <Panel className="p-10 text-center">
             <AlertTriangle className="mx-auto h-12 w-12 text-[#DC2626]" />
@@ -282,7 +299,12 @@ export function CaseWizardStep3() {
 
     return (
       <AppLayout>
-        <section className="max-w-[900px]">
+        <section className="max-w-[1140px]">
+          <PageHeader
+            title="Recomendaciones de productos"
+            subtitle="Revise las opciones recomendadas basadas en su contexto"
+            className="mb-5"
+          />
           <CaseStepper step={3} />
           <Panel className="p-10">
             <div className="text-center">
@@ -323,7 +345,12 @@ export function CaseWizardStep3() {
   if (pipelineState?.status === 'failed') {
     return (
       <AppLayout>
-        <section className="max-w-[900px]">
+        <section className="max-w-[1140px]">
+          <PageHeader
+            title="Recomendaciones de productos"
+            subtitle="Revise las opciones recomendadas basadas en su contexto"
+            className="mb-5"
+          />
           <CaseStepper step={3} />
           <Panel className="border-[#FCA5A5] bg-[#FEF2F2] p-10 text-center">
             <AlertTriangle className="mx-auto h-12 w-12 text-[#DC2626]" />
@@ -344,7 +371,7 @@ export function CaseWizardStep3() {
 
   return (
     <AppLayout>
-      <section className="max-w-[1160px]">
+      <section className="max-w-[1140px]">
         <PageHeader
           title="Recomendaciones de productos"
           subtitle="Revise las opciones recomendadas basadas en su contexto"
@@ -370,14 +397,54 @@ export function CaseWizardStep3() {
 
             <div className="mt-9 grid gap-7 lg:grid-cols-3">
               {products.map((product) => (
-                <Panel key={product.productId} className="p-6">
-                  <div className="flex-1 border-t border-[#F3F4F6] pt-4">
-                    <p className="text-sm italic text-[#4B5563] leading-relaxed">
+                <Panel key={product.productId} className="p-6 flex flex-col gap-4">
+                  {/* Justificación del agente */}
+                  <div className="border-b border-[#F3F4F6] pb-4">
+                    <p className="text-sm italic text-[#4B5563] leading-relaxed break-words whitespace-pre-wrap">
                       &ldquo;{product.justification}&rdquo;
                     </p>
                   </div>
 
-                  <div className="mt-6 space-y-2.5 border-t border-[#F3F4F6] pt-4 text-xs text-[#6B7280]">
+                  {/* Ventajas */}
+                  {product.ventajas.length > 0 && (
+                    <div>
+                      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-[#16A34A]">Ventajas</p>
+                      <ul className="space-y-1">
+                        {product.ventajas.map((v, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-xs text-[#374151]">
+                            <Check className="mt-0.5 h-3 w-3 shrink-0 text-[#16A34A]" />
+                            {v}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Riesgos */}
+                  {product.riesgos.length > 0 && (
+                    <div>
+                      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-[#F59E0B]">Riesgos</p>
+                      <ul className="space-y-1">
+                        {product.riesgos.map((r, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-xs text-[#374151]">
+                            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-[#F59E0B]" />
+                            {r}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Recomendación de uso */}
+                  {product.recomendacion_uso_general && (
+                    <div className="rounded-lg bg-[#F0FDF4] p-3">
+                      <p className="mb-1 text-xs font-bold uppercase tracking-wide text-[#166534]">Uso recomendado</p>
+                      <p className="text-xs text-[#166534] leading-relaxed">{product.recomendacion_uso_general}</p>
+                    </div>
+                  )}
+
+                  {/* Datos técnicos */}
+                  <div className="space-y-2 border-t border-[#F3F4F6] pt-3 text-xs text-[#6B7280]">
                     <div className="flex justify-between">
                       <span>Dosis:</span>
                       <span className="font-semibold text-[#374151]">{product.dosis || 'No disponible'}</span>
@@ -385,13 +452,17 @@ export function CaseWizardStep3() {
                     <div className="flex justify-between">
                       <span>Precio Est.:</span>
                       <span className="font-semibold text-[#374151]">
-                        {product.precio_estimado ? `${product.precio_estimado} ₡` : 'No disponible'}
+                        {product.precio_estimado !== undefined && product.precio_estimado !== null
+                          ? `${product.precio_estimado.toLocaleString('es-CR')} ₡`
+                          : 'No disponible'}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Plazo de espera:</span>
                       <span className="font-semibold text-[#374151]">
-                        {product.intervalo_seguridad !== null ? `${product.intervalo_seguridad} días` : 'No aplica'}
+                        {product.intervalo_seguridad !== undefined && product.intervalo_seguridad !== null
+                          ? `${product.intervalo_seguridad} días`
+                          : 'No aplica'}
                       </span>
                     </div>
                   </div>

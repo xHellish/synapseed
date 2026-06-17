@@ -18,7 +18,7 @@ const profileSchema = z
     phone: z
       .string()
       .trim()
-      .regex(/^\+506\s\d{4}\s\d{4}$/, 'Ingrese un teléfono válido con formato +506 8888 8888.'),
+      .regex(/^\+?[\d\s-]{8,20}$/, 'Ingrese un número de teléfono válido (mínimo 8 dígitos).'),
     newPassword: z.string().optional().or(z.literal('')),
     confirmPassword: z.string().optional().or(z.literal('')),
   })
@@ -40,6 +40,7 @@ export function AccountPage() {
   const [toastOpen, setToastOpen] = useState(false)
   const [toastTitle, setToastTitle] = useState('')
   const [toastDescription, setToastDescription] = useState('')
+  const [originalPhone, setOriginalPhone] = useState('+506 8888 8888')
 
   const {
     register,
@@ -66,11 +67,13 @@ export function AccountPage() {
           headers: { Authorization: `Bearer ${token}` },
         })
         const profile = response.data
+        const phoneVal = profile.phone?.replace(/-/g, ' ') ?? '+506 8888 8888'
+        setOriginalPhone(phoneVal)
         reset({
           identification: profile.identification ?? '',
           fullName: profile.full_name ?? '',
           email: profile.email ?? '',
-          phone: profile.phone?.replace(/-/g, ' ') ?? '+506 8888 8888',
+          phone: phoneVal,
           newPassword: '',
           confirmPassword: '',
         })
@@ -93,7 +96,7 @@ export function AccountPage() {
       identification: user?.identification ?? '',
       fullName: user?.full_name ?? '',
       email: user?.email ?? '',
-      phone: '+506 8888 8888',
+      phone: originalPhone,
       newPassword: '',
       confirmPassword: '',
     })
@@ -104,7 +107,7 @@ export function AccountPage() {
       const profileChanged =
         values.fullName.trim() !== (user?.full_name ?? '') ||
         values.email.trim() !== (user?.email ?? '') ||
-        values.phone.trim() !== '+506 8888 8888'
+        values.phone.trim() !== originalPhone
 
       if (values.newPassword) {
         setToastTitle('Contraseña no actualizada')
@@ -123,6 +126,8 @@ export function AccountPage() {
           },
           { headers: { Authorization: `Bearer ${token}` } },
         )
+
+        setOriginalPhone(values.phone.trim())
 
         login(token ?? '', {
           id: user?.id ?? 'demo-user',

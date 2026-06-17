@@ -98,6 +98,7 @@ async def async_run_recommendation_pipeline(ticket_id: str) -> None:
             await recommendations.remove_products(rec.id)
 
             # Insertar nuevos productos recomendados mapeando tipos
+            import json as _json
             products_to_add = []
             for item in result.synthesis.recomendaciones:
                 # Tratar valores que vengan como 'no_disponible' o incompatibles con base de datos
@@ -123,6 +124,9 @@ async def async_run_recommendation_pipeline(ticket_id: str) -> None:
                     "precio_estimado": precio_estimado,
                     "toxicidad": item.toxicidad if item.toxicidad != "no_disponible" else None,
                     "intervalo_seguridad": intervalo_seguridad,
+                    "ventajas": _json.dumps(item.ventajas, ensure_ascii=False) if item.ventajas else None,
+                    "riesgos": _json.dumps(item.riesgos, ensure_ascii=False) if item.riesgos else None,
+                    "recomendacion_uso_general": item.recomendacion_uso_general or None,
                 })
 
             if products_to_add:

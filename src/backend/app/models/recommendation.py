@@ -94,6 +94,11 @@ class RecommendationProduct(Base, IDMixin, TimestampMixin):
     toxicidad: Mapped[str | None] = mapped_column(String(20), nullable=True)
     intervalo_seguridad: Mapped[int | None] = mapped_column(nullable=True)
 
+    # Contenido generado por el LLM (texto enriquecido por el sintetizador)
+    ventajas: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list serializado
+    riesgos: Mapped[str | None] = mapped_column(Text, nullable=True)   # JSON list serializado
+    recomendacion_uso_general: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     recommendation: Mapped[Recommendation] = relationship("Recommendation", back_populates="products")
     product: Mapped[Product] = relationship("Product")
 

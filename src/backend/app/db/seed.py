@@ -45,6 +45,7 @@ if settings.gemini_api_key and settings.gemini_api_key != "your-gemini-api-key-h
         test_client = GoogleGenerativeAIEmbeddings(
             google_api_key=settings.gemini_api_key,
             model=settings.google_embedding_model,
+            task_type="RETRIEVAL_DOCUMENT",
         )
         # Probar con un texto corto
         test_client.embed_query("test")
@@ -57,7 +58,7 @@ if settings.gemini_api_key and settings.gemini_api_key != "your-gemini-api-key-h
 
 
 def get_embedding(text: str) -> list[float] | None:
-    """Genera embedding usando Google Gemini text-embedding-004 (gratuito)."""
+    """Genera embedding usando Google Gemini (gemini-embedding-001, 768 dims)."""
     if not text or not text.strip():
         return None
     if not embedding_client:

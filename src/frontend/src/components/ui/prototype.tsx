@@ -1,3 +1,4 @@
+import React from 'react'
 import * as Select from '@radix-ui/react-select'
 import { Check, ChevronDown, type LucideIcon } from 'lucide-react'
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
@@ -179,25 +180,29 @@ export function CaseStepper({ step }: CaseStepperProps) {
   const steps = ['Datos del caso', 'Confirmación', 'Recomendaciones', 'Proveedores']
 
   return (
-    <div className="mb-10 flex flex-wrap items-center gap-3 text-lg">
+    <div className="mb-10 flex w-full flex-nowrap items-center overflow-hidden pb-2">
       {steps.map((label, index) => {
         const number = index + 1
         const active = number === step
         const done = number < step
 
         return (
-          <div key={label} className="flex items-center gap-3">
-            <span
-              className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-full text-lg font-bold',
-                done || active ? 'bg-[#16A34A] text-white' : 'bg-[#E9EDF3] text-[#111827]',
-              )}
-            >
-              {number}
-            </span>
-            <span className={cn('font-normal', active || done ? 'font-bold text-[#111827]' : 'text-[#6B7280]')}>{label}</span>
-            {index < steps.length - 1 && <span className="h-px w-[96px] bg-[#9CA3AF]" />}
-          </div>
+          <React.Fragment key={label}>
+            <div className="flex shrink-0 items-center gap-2">
+              <span
+                className={cn(
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base font-bold',
+                  done || active ? 'bg-[#16A34A] text-white' : 'bg-[#E9EDF3] text-[#111827]',
+                )}
+              >
+                {number}
+              </span>
+              <span className={cn('whitespace-nowrap text-sm font-normal md:text-base', active || done ? 'font-bold text-[#111827]' : 'text-[#6B7280]')}>
+                {label}
+              </span>
+            </div>
+            {index < steps.length - 1 && <span className="mx-3 h-px flex-1 bg-[#9CA3AF]" />}
+          </React.Fragment>
         )
       })}
     </div>

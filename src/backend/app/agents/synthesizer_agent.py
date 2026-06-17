@@ -21,6 +21,10 @@ class _SynthesisLLMItem(BaseModel):
     ventajas: list[str] = Field(default_factory=list)
     riesgos: list[str] = Field(default_factory=list)
     recomendacion_uso_general: str
+    dosis_estimada: str | None = None
+    precio_estimado: float | None = None
+    toxicidad_estimada: str | None = None
+    intervalo_seguridad_estimado: int | None = None
 
 
 class _SynthesisLLMResponse(BaseModel):
@@ -84,6 +88,7 @@ async def synthesize_recommendations(
                 "precio": _format_price(p.precio_referencia_por_litro),
                 "toxicidad": p.toxicidad or "no_disponible",
                 "intervalo_seguridad": _format_interval(p.intervalo_seguridad_dias),
+                "registrante": getattr(p, "registrante", None) or "no_disponible",
             }
         )
 
@@ -102,16 +107,34 @@ async def synthesize_recommendations(
     for rank, item in enumerate(top, start=1):
         p = item.producto
         text = text_by_id.get(p.product_id)
+
+        # Fallback to LLM estimates if database fields are missing or not available
+        dosis = p.dosis_recomendada
+        if not dosis or dosis == "no_disponible":
+            dosis = text.dosis_estimada if text else "no_disponible"
+
+        precio = p.precio_referencia_por_litro
+        if precio is None:
+            precio = text.precio_estimado if text else None
+
+        toxicidad = p.toxicidad
+        if not toxicidad or toxicidad == "no_disponible":
+            toxicidad = text.toxicidad_estimada if text else "no_disponible"
+
+        intervalo = p.intervalo_seguridad_dias
+        if intervalo is None:
+            intervalo = text.intervalo_seguridad_estimado if text else None
+
         recomendaciones.append(
             ProductRecommendation(
                 ranking=rank,
                 product_id=p.product_id,
                 nombre_producto=p.nombre_comercial,
                 ingrediente_activo=p.ingrediente_activo,
-                dosis=p.dosis_recomendada or "no_disponible",
-                precio=_format_price(p.precio_referencia_por_litro),
-                toxicidad=p.toxicidad or "no_disponible",
-                intervalo_seguridad=_format_interval(p.intervalo_seguridad_dias),
+                dosis=dosis or "no_disponible",
+                precio=_format_price(precio),
+                toxicidad=toxicidad or "no_disponible",
+                intervalo_seguridad=_format_interval(intervalo),
                 justificacion=text.justificacion if text else p.razon_relevancia,
                 ventajas=text.ventajas if text else [],
                 riesgos=text.riesgos if text else [],

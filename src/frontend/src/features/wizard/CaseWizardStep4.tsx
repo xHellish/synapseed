@@ -88,7 +88,7 @@ export function CaseWizardStep4() {
     )
   }
 
-  if (isError && providers.length === 0) {
+  if (isError || providers.length === 0) {
     return (
       <AppLayout>
         <section className="max-w-[1140px]">
@@ -139,7 +139,15 @@ export function CaseWizardStep4() {
               </div>
 
               <div className="flex flex-col gap-4">
-                <SynapButton className="w-full">Contactar</SynapButton>
+                <SynapButton
+                  className="w-full"
+                  onClick={() => {
+                    const query = encodeURIComponent(`${provider.name} ${provider.productName}`)
+                    window.open(`https://www.google.com/search?q=${query}`, '_blank')
+                  }}
+                >
+                  Contactar
+                </SynapButton>
                 {provider.email !== 'No disponible' ? (
                   <a href={`mailto:${provider.email}`} className={buttonClasses({ variant: 'outline', className: 'w-full' })}>
                     Enviar correo

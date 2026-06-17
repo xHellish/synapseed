@@ -18,7 +18,7 @@ const registerSchema = z
       .string()
       .trim()
       .min(1, 'El número de identificación es obligatorio.')
-      .regex(/^\d\s\d{4}\s\d{4}$/, 'Ingrese una cédula válida con formato 0 0000 0000.'),
+      .regex(/^\d\s\d{4}\s\d{4,5}$/, 'Ingrese una cédula válida con formato 0 0000 0000.'),
     fullName: z.string().trim().min(3, 'Ingrese su nombre completo.'),
     phone: z
       .string()

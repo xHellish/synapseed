@@ -11,6 +11,10 @@ export interface ProductDetail {
   cultivo_objetivo?: string | null
   problema_objetivo?: string | null
   lmr?: string | null
+  registrante?: string | null
+  ventajas?: string[] | null
+  riesgos?: string[] | null
+  recomendacion_uso_general?: string | null
 }
 
 export interface RecommendationData {
@@ -70,6 +74,14 @@ export interface ProductComparison {
   application: string
   finalRecommendation: string
   lmr: string
+  dosis?: string | null
+  precio_estimado?: number | null
+  intervalo_seguridad?: number | null
+  justification?: string | null
+  registrante?: string | null
+  ventajas: string[]
+  riesgos: string[]
+  recomendacion_uso_general: string | null
 }
 
 export interface ComparisonRow {
@@ -151,6 +163,16 @@ export function buildProductComparisons(
       const price = product.precio_estimado ?? null
       const risk = riskFromToxicity(product.toxicidad)
 
+      // "Compatible con cultivo" y "Trata el problema": si la BD no tiene dato específico,
+      // el motor de IA eligió este producto para ese cultivo/problema → "Sí"
+      const compatibilityValue = cropTarget && crop
+        ? (cropTarget.includes(crop) || crop.includes(cropTarget) ? 'Sí' : 'Revisar')
+        : 'Sí'
+
+      const treatsProblemValue = problemTarget && problem
+        ? (problemTarget.includes(problem) || problem.includes(problemTarget) ? 'Sí' : 'Revisar')
+        : 'Sí'
+
       return {
         rank: product.rank,
         productId: String(product.product_id),
@@ -158,7 +180,7 @@ export function buildProductComparisons(
         badge: product.rank === 1 ? 'Mejor opción' : product.rank === 2 ? 'Alternativa viable' : 'Más económico',
         badgeColor: product.rank === 1 ? 'green' : product.rank === 2 ? 'blue' : 'amber',
         type: formatCategory(product.categoria),
-        compatibility: cropTarget ? (cropTarget.includes(crop) || crop.includes(cropTarget) ? 'Excelente' : 'Revisar') : unavailable,
+        compatibility: compatibilityValue,
         price: formatColones(price),
         availability:
           productProviders.length > 0
@@ -166,7 +188,7 @@ export function buildProductComparisons(
               ? 'Disponible localmente'
               : `${productProviders.length} proveedores`
             : unavailable,
-        treatsProblem: problemTarget ? (problemTarget.includes(problem) || problem.includes(problemTarget) ? 'Sí' : 'Revisar') : unavailable,
+        treatsProblem: treatsProblemValue,
         budget:
           price === null || price === undefined || Number.isNaN(price) || Number.isNaN(budget)
             ? unavailable
@@ -183,13 +205,21 @@ export function buildProductComparisons(
               : risk === 'Bajo'
                 ? 'Recomendado'
                 : 'Recomendado con reservas',
-        lmr: product.lmr ?? unavailable,
+        lmr: product.lmr ?? 'Sin norma SFE',
+        dosis: product.dosis,
+        precio_estimado: product.precio_estimado,
+        intervalo_seguridad: product.intervalo_seguridad,
+        justification: product.justification,
+        registrante: product.registrante,
+        ventajas: product.ventajas ?? [],
+        riesgos: product.riesgos ?? [],
+        recomendacion_uso_general: product.recomendacion_uso_general ?? null,
       }
     })
 }
 
 function toneFor(value: string): 'ok' | 'warning' | 'muted' {
-  if (value === unavailable) return 'muted'
+  if (value === unavailable || value === 'Sin norma SFE') return 'muted'
   if (value.includes('Revisar') || value.includes('reservas') || value.includes('fuera')) return 'warning'
   if (value === 'Alto' || value === 'Muy alto') return 'warning'
   return 'ok'

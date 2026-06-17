@@ -122,6 +122,99 @@ async def test_synthesizer_does_not_invent_third_when_only_two_valid():
 
 
 @pytest.mark.asyncio
+async def test_synthesizer_populates_ventajas_riesgos_recomendacion():
+    """ventajas, riesgos y recomendacion_uso_general deben incluirse en la salida."""
+    context = ContextAnalysisOutput(
+        cultivo="tomate",
+        problema_detectado="plaga",
+        condiciones_agronomicas=AgronomicConditions(),
+        severidad_estimada="media",
+        restricciones_relevantes=[],
+        resumen_para_rag="tomate plaga insecticida",
+        advertencias=[],
+        datos_faltantes=[],
+        confianza=0.9,
+        tipo_proteccion_necesaria="insecticida",
+        categoria_producto_sugerida="plaguicida",
+    )
+    legal = LegalValidationOutput(
+        productos_validos=[_validated(1)],
+        productos_descartados=[],
+        restricciones_detectadas=[],
+        nivel_riesgo_legal="bajo",
+        advertencias_legales=[],
+        confianza=0.9,
+    )
+    llm = MockLLMClient(
+        responses={
+            "default": {
+                "items": [
+                    {
+                        "product_id": 1,
+                        "justificacion": "Producto ideal para este caso.",
+                        "ventajas": ["Amplio espectro", "Registrado SFE"],
+                        "riesgos": ["Respetar intervalo de seguridad", "Usar EPP"],
+                        "recomendacion_uso_general": "Aplicar en las horas de menor temperatura.",
+                    }
+                ]
+            }
+        }
+    )
+    result = await synthesize_recommendations(context, legal, llm)
+    rec = result.recomendaciones[0]
+
+    assert rec.ventajas == ["Amplio espectro", "Registrado SFE"]
+    assert rec.riesgos == ["Respetar intervalo de seguridad", "Usar EPP"]
+    assert rec.recomendacion_uso_general == "Aplicar en las horas de menor temperatura."
+
+
+@pytest.mark.asyncio
+async def test_synthesizer_empty_ventajas_riesgos_when_llm_omits():
+    """Si el LLM no devuelve ventajas/riesgos, deben ser listas vacías (no None)."""
+    context = ContextAnalysisOutput(
+        cultivo="café",
+        problema_detectado="roya",
+        condiciones_agronomicas=AgronomicConditions(),
+        severidad_estimada="alta",
+        restricciones_relevantes=[],
+        resumen_para_rag="café roya fungicida",
+        advertencias=[],
+        datos_faltantes=[],
+        confianza=0.8,
+        tipo_proteccion_necesaria="fungicida",
+        categoria_producto_sugerida="plaguicida",
+    )
+    legal = LegalValidationOutput(
+        productos_validos=[_validated(2)],
+        productos_descartados=[],
+        restricciones_detectadas=[],
+        nivel_riesgo_legal="bajo",
+        advertencias_legales=[],
+        confianza=0.8,
+    )
+    llm = MockLLMClient(
+        responses={
+            "default": {
+                "items": [
+                    {
+                        "product_id": 2,
+                        "justificacion": "Fungicida con buena cobertura.",
+                        # Sin ventajas ni riesgos explícitos → defaults vacíos
+                        "recomendacion_uso_general": "Consultar etiqueta SFE.",
+                    }
+                ]
+            }
+        }
+    )
+    result = await synthesize_recommendations(context, legal, llm)
+    rec = result.recomendaciones[0]
+
+    assert isinstance(rec.ventajas, list)
+    assert isinstance(rec.riesgos, list)
+    assert rec.recomendacion_uso_general == "Consultar etiqueta SFE."
+
+
+@pytest.mark.asyncio
 async def test_synthesizer_does_not_invent_missing_factual_fields():
     context = ContextAnalysisOutput(
         cultivo="tomate",

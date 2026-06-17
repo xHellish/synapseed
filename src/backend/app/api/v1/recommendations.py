@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+import json
+from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -10,7 +13,7 @@ from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.audit_log import AuditAction
 from app.models.recommendation import RecommendationStatus
-from app.repositories import AuditRepository, RecommendationRepository
+from app.repositories import AuditRepository, DistributorRepository, RecommendationRepository
 from app.schemas.common import RecommendationRequest
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
@@ -137,6 +140,15 @@ async def detail(
                 rec.crop,
             )
 
+        def _parse_json_list(raw: str | None) -> list[str]:
+            if not raw:
+                return []
+            try:
+                parsed = json.loads(raw)
+                return parsed if isinstance(parsed, list) else []
+            except Exception:
+                return []
+
         products.append(
             {
                 "rank": p.rank,
@@ -155,6 +167,10 @@ async def detail(
                 ),
                 "cultivo_objetivo": product.cultivo_objetivo if product else None,
                 "problema_objetivo": product.problema_objetivo if product else None,
+                "registrante": product.registrante if product else None,
+                "ventajas": _parse_json_list(p.ventajas),
+                "riesgos": _parse_json_list(p.riesgos),
+                "recomendacion_uso_general": p.recomendacion_uso_general,
             }
         )
 
@@ -196,28 +212,46 @@ async def providers(
             detail="Recomendación no encontrada",
         )
 
-    seen_ids: set[int] = set()
+    seen_ids: set[Any] = set()
     result: list[dict[str, object]] = []
     for rec_product in rec.products:
         dist_list = await distributor_repo.get_by_product(rec_product.product_id)
-        for d in dist_list:
-            if d.id not in seen_ids:
-                seen_ids.add(d.id)
+        if dist_list:
+            for d in dist_list:
+                if d.id not in seen_ids:
+                    seen_ids.add(d.id)
+                    result.append(
+                        {
+                            "id": d.id,
+                            "nombre": d.nombre,
+                            "product_id": rec_product.product_id,
+                            "producto_asociado": (
+                                rec_product.product.nombre_comercial
+                                if rec_product.product
+                                else None
+                            ),
+                            "correo": d.correo,
+                            "telefono": d.telefono,
+                            "ubicacion": d.ubicacion,
+                            "provincia": d.provincia,
+                            "canton": d.canton,
+                        }
+                    )
+        elif rec_product.product and rec_product.product.registrante:
+            fallback_id = f"reg-{rec_product.product_id}"
+            if fallback_id not in seen_ids:
+                seen_ids.add(fallback_id)
                 result.append(
                     {
-                        "id": d.id,
-                        "nombre": d.nombre,
+                        "id": fallback_id,
+                        "nombre": rec_product.product.registrante,
                         "product_id": rec_product.product_id,
-                        "producto_asociado": (
-                            rec_product.product.nombre_comercial
-                            if rec_product.product
-                            else None
-                        ),
-                        "correo": d.correo,
-                        "telefono": d.telefono,
-                        "ubicacion": d.ubicacion,
-                        "provincia": d.provincia,
-                        "canton": d.canton,
+                        "producto_asociado": rec_product.product.nombre_comercial,
+                        "correo": "No disponible",
+                        "telefono": "No disponible",
+                        "ubicacion": "Registrante Oficial",
+                        "provincia": None,
+                        "canton": None,
                     }
                 )
     return result
