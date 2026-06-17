@@ -47,7 +47,7 @@ class Recommendation(Base, IDMixin, TimestampMixin):
 
     # Estado del pipeline
     status: Mapped[RecommendationStatus] = mapped_column(
-        SQLEnum(RecommendationStatus, name="recommendation_status", create_constraint=True),
+        SQLEnum(RecommendationStatus, name="recommendation_status", create_constraint=True, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=RecommendationStatus.PENDING,
         index=True,

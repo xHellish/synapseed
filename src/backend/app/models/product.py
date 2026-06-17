@@ -44,18 +44,18 @@ class Product(Base, IDMixin, TimestampMixin):
     nombre_comercial: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
     ingrediente_activo: Mapped[str] = mapped_column(Text, nullable=False)
     categoria: Mapped[ProductCategory] = mapped_column(
-        SQLEnum(ProductCategory, name="product_category", create_constraint=True),
+        SQLEnum(ProductCategory, name="product_category", create_constraint=True, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         index=True,
     )
     estado: Mapped[ProductStatus] = mapped_column(
-        SQLEnum(ProductStatus, name="product_status", create_constraint=True),
+        SQLEnum(ProductStatus, name="product_status", create_constraint=True, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=ProductStatus.ACTIVO,
         index=True,
     )
     banda_toxicologica: Mapped[ToxicBand] = mapped_column(
-        SQLEnum(ToxicBand, name="toxic_band", create_constraint=True),
+        SQLEnum(ToxicBand, name="toxic_band", create_constraint=True, values_callable=lambda x: [e.value for e in x]),
         nullable=True,
         index=True,
     )

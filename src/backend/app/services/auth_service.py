@@ -1,4 +1,17 @@
-"""Lógica de negocio de autenticación y perfil (Supabase Auth + tabla users)."""
+"""Servicio de autenticación refactorizado con Strategy Pattern.
+
+``AuthServiceFactory`` selecciona la estrategia correcta según el entorno.
+``AuthService`` delega toda la lógica de autenticación a la estrategia activa.
+
+Las funciones del módulo (``register_user``, ``authenticate_user``, etc.) se
+mantienen como wrappers de compatibilidad para no romper importaciones existentes
+en ``auth.py`` y otros consumidores.
+
+Cumplimiento SOLID:
+- SRP: cada estrategia tiene una sola responsabilidad de autenticación.
+- OCP: agregar OAuth2/SAML = crear nueva subclase, sin modificar este archivo.
+- DIP: ``AuthService`` depende de ``AuthStrategy`` (abstracción), no de bcrypt/Supabase directamente.
+"""
 
 from __future__ import annotations
 
@@ -8,181 +21,135 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.core.security import create_access_token, get_password_hash, verify_password
 from app.core.supabase import (
     SupabaseAuthError,
     SupabaseSession,
-    SupabaseSignupResult,
     get_user as supabase_get_user,
-    sign_in_with_password,
-    sign_up,
     update_user as supabase_update_user,
 )
 from app.models.user import User
-from app.schemas.user import PasswordChange, PasswordResetRequest, UserLogin, UserRegister, UserUpdate
+from app.schemas.user import (
+    PasswordChange,
+    PasswordResetRequest,
+    UserLogin,
+    UserRegister,
+    UserUpdate,
+)
+from app.services.auth_strategy import (
+    AuthError,
+    AuthStrategy,
+    LocalAuthStrategy,
+    SupabaseAuthStrategy,
+    _get_user_by_auth_id_or_email,
+    _is_unconfigured,
+)
+
+# Re-exportar AuthError para que los importadores existentes no se rompan
+__all__ = [
+    "AuthError",
+    "AuthService",
+    "AuthServiceFactory",
+    "register_user",
+    "authenticate_user",
+    "build_token_response",
+    "resolve_user_from_token",
+    "update_user_profile",
+    "change_user_password",
+    "reset_user_password",
+]
 
 
-class AuthError(Exception):
-    """Error de autenticación con código HTTP asociado."""
+# ---------------------------------------------------------------------------
+# Factory — selección de estrategia
+# ---------------------------------------------------------------------------
 
-    def __init__(self, message: str, status_code: int = 400) -> None:
-        self.message = message
-        self.status_code = status_code
-        super().__init__(message)
+class AuthServiceFactory:
+    """Selecciona la estrategia de autenticación según la configuración del entorno.
 
-
-def _is_unconfigured(value: str) -> bool:
-    """Detecta valores vacíos o placeholders del .env de ejemplo."""
-    normalized = value.strip().lower()
-    return not normalized or any(token in normalized for token in ("<", ">", "[", "]", "your-", "tu_"))
-
-
-def _local_auth_enabled() -> bool:
-    """Permite auth local solo para desarrollo cuando Supabase no está configurado."""
-    settings = get_settings()
-    return settings.is_development and (
-        _is_unconfigured(settings.supabase_url)
-        or _is_unconfigured(settings.supabase_anon_key)
-    )
-
-
-def _build_local_session(user: User) -> SupabaseSession:
-    settings = get_settings()
-    return SupabaseSession(
-        access_token=create_access_token(subject=str(user.id)),
-        refresh_token="",
-        expires_in=settings.jwt_expire_hours * 3600,
-        auth_user_id=user.auth_user_id if user.auth_user_id is not None else UUID(int=user.id),
-        email=user.email,
-    )
-
-
-def _verify_local_password(user: User, password: str) -> SupabaseSession | None:
-    if user.password_hash and verify_password(password, user.password_hash):
-        return _build_local_session(user)
-    return None
-
-
-async def _get_user_by_identification(db: AsyncSession, identification: str) -> User | None:
-    result = await db.execute(select(User).where(User.identification == identification))
-    return result.scalar_one_or_none()
-
-
-async def _get_user_by_auth_id_or_email(
-    db: AsyncSession,
-    *,
-    auth_user_id: UUID,
-    email: str,
-) -> User | None:
-    result = await db.execute(
-        select(User).where(
-            or_(User.auth_user_id == auth_user_id, User.email == email),
-        ),
-    )
-    return result.scalar_one_or_none()
-
-
-async def register_user(db: AsyncSession, data: UserRegister) -> User:
-    """Registra perfil en DB y credenciales en Supabase Auth.
-
-    Funciona tanto si Supabase tiene confirmación de email habilitada como deshabilitada.
-    Si está habilitada, el usuario se guarda en la DB con ``is_verified=False`` y sin sesión.
+    Centraliza la lógica de decisión en un único punto (OCP): agregar un nuevo
+    proveedor solo requiere añadir una condición aquí y crear la estrategia.
     """
-    existing = await db.execute(
-        select(User).where(
-            or_(User.email == data.email, User.identification == data.identification),
-        ),
-    )
-    conflict = existing.scalar_one_or_none()
-    if conflict is not None:
-        if conflict.email == data.email:
-            raise AuthError("El correo electrónico ya está registrado", status_code=409)
-        raise AuthError("La cédula ya está registrada", status_code=409)
 
-    if _local_auth_enabled():
-        user = User(
-            auth_user_id=None,
-            email=data.email,
-            password_hash=get_password_hash(data.password),
-            full_name=data.full_name,
-            identification=data.identification,
-            phone=data.phone,
-            is_verified=True,
+    @staticmethod
+    def _local_auth_enabled() -> bool:
+        """True cuando Supabase no está configurado y estamos en desarrollo."""
+        settings = get_settings()
+        return settings.is_development and (
+            _is_unconfigured(settings.supabase_url)
+            or _is_unconfigured(settings.supabase_anon_key)
         )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-        return user
 
-    try:
-        result: SupabaseSignupResult = await sign_up(
-            data.email,
-            data.password,
-            metadata={
-                "full_name": data.full_name,
-                "identification": data.identification,
-                "phone": data.phone,
-            },
-        )
-    except SupabaseAuthError as exc:
-        raise AuthError(exc.message, status_code=exc.status_code) from exc
-
-    user = User(
-        auth_user_id=result.auth_user_id,
-        email=data.email,
-        full_name=data.full_name,
-        identification=data.identification,
-        phone=data.phone,
-        is_verified=not result.confirmation_required,
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    return user
+    @staticmethod
+    def get_strategy() -> AuthStrategy:
+        """Retorna la estrategia activa para el entorno actual."""
+        if AuthServiceFactory._local_auth_enabled():
+            return LocalAuthStrategy()
+        return SupabaseAuthStrategy()
 
 
-async def authenticate_user(db: AsyncSession, data: UserLogin) -> tuple[User, SupabaseSession | None]:
-    """Login con cédula: resuelve email en ``users`` y autentica en Supabase.
+# ---------------------------------------------------------------------------
+# Servicio principal — delega a la estrategia inyectada (DIP)
+# ---------------------------------------------------------------------------
 
-    Soporta backward-compatibility:
-    - Usuarios registrados con bcrypt local (password_hash) intentan Supabase;
-      si Supabase no los tiene, se verifica contra el hash local.
-    - Usuarios registrados via Supabase Auth se autentican normalmente.
+class AuthService:
+    """Orquestador de autenticación que delega a la estrategia configurada.
+
+    Acepta inyección de una estrategia externa para facilitar tests
+    (inyectar un mock) sin modificar este archivo (DIP + OCP).
     """
-    user = await _get_user_by_identification(db, data.identification)
-    if user is None:
-        raise AuthError("Cédula o contraseña incorrectos", status_code=401)
 
-    if not user.is_active:
-        raise AuthError("Cuenta desactivada", status_code=403)
+    def __init__(self, strategy: AuthStrategy | None = None) -> None:
+        self.strategy: AuthStrategy = strategy or AuthServiceFactory.get_strategy()
 
-    if _local_auth_enabled():
-        local_session = _verify_local_password(user, data.password)
-        if local_session is not None:
-            return user, local_session
-        raise AuthError("Cédula o contraseña incorrectos", status_code=401)
+    async def register_user(self, db: AsyncSession, data: UserRegister) -> User:
+        """Registra un nuevo usuario delegando a la estrategia activa."""
+        return await self.strategy.register(db, data)
 
-    # Intentar Supabase Auth primero
-    try:
-        session = await sign_in_with_password(user.email, data.password)
-        # Vincular auth_user_id si no estaba seteado
-        if user.auth_user_id is None:
-            user.auth_user_id = session.auth_user_id
-            await db.commit()
-            await db.refresh(user)
-        return user, session
-    except SupabaseAuthError as exc:
-        # Si el error no es 401 (credenciales), propagar
-        if exc.status_code != 401:
-            raise AuthError(exc.message, status_code=exc.status_code) from exc
+    async def authenticate_user(
+        self, db: AsyncSession, data: UserLogin
+    ) -> tuple[User, SupabaseSession | None]:
+        """Autentica un usuario delegando a la estrategia activa."""
+        return await self.strategy.authenticate(db, data)
 
-    # Fallback: verificar contra password_hash local (backward-compatibilidad)
-    local_session = _verify_local_password(user, data.password)
-    if local_session is not None:
-        return user, local_session
+    async def change_user_password(
+        self, db: AsyncSession, user: User, data: PasswordChange
+    ) -> None:
+        """Cambia la contraseña delegando a la estrategia activa."""
+        await self.strategy.change_password(db, user, data)
 
-    raise AuthError("Cédula o contraseña incorrectos", status_code=401)
+    async def reset_user_password(
+        self, db: AsyncSession, data: PasswordResetRequest
+    ) -> None:
+        """Restablece la contraseña delegando a la estrategia activa."""
+        await self.strategy.reset_password(db, data)
 
+    def build_token_response(self, user: User, session: SupabaseSession) -> dict:
+        """Construye respuesta de login con los tokens de sesión."""
+        return build_token_response(user, session)
+
+    async def resolve_user_from_token(
+        self, db: AsyncSession, access_token: str
+    ) -> User:
+        """Valida JWT y carga el usuario de la tabla ``users``."""
+        return await resolve_user_from_token(db, access_token)
+
+    async def update_user_profile(
+        self,
+        db: AsyncSession,
+        user: User,
+        data: UserUpdate,
+        *,
+        access_token: str,
+    ) -> User:
+        """Actualiza perfil en DB y email en Supabase si cambió."""
+        return await update_user_profile(db, user, data, access_token=access_token)
+
+
+# ---------------------------------------------------------------------------
+# Funciones de módulo — wrappers de compatibilidad hacia atrás
+# ---------------------------------------------------------------------------
+# Mantienen la API pública que consume auth.py y services/__init__.py
+# sin necesidad de modificar esos archivos.
 
 def build_token_response(user: User, session: SupabaseSession) -> dict:
     """Construye respuesta de login con JWT de Supabase."""
@@ -199,18 +166,15 @@ async def resolve_user_from_token(db: AsyncSession, access_token: str) -> User:
     """Valida JWT y carga el usuario de la tabla ``users``.
 
     Soporta dos tipos de token:
-    1. **JWT local** (firmado con ``JWT_SECRET``): emitido por el fallback de bcrypt.
-       El campo ``sub`` contiene el ``user.id`` como string numérico.
-    2. **JWT de Supabase**: emitido por Supabase Auth.
-       Se valida contra la API de Supabase ``/auth/v1/user``.
+    1. **JWT local** (firmado con ``JWT_SECRET``): sub contiene el ``user.id``.
+    2. **JWT de Supabase**: se valida contra la API de Supabase ``/auth/v1/user``.
     """
-    # --- Intentar decodificar como JWT local primero ---
     from app.core.security import decode_access_token as _local_decode
 
+    # --- Intentar decodificar como JWT local primero ---
     try:
         payload = _local_decode(access_token)
         sub = payload.get("sub", "")
-        # Token local: sub es el user.id (entero serializado como str)
         if sub.isdigit():
             result = await db.execute(select(User).where(User.id == int(sub)))
             user = result.scalar_one_or_none()
@@ -219,12 +183,9 @@ async def resolve_user_from_token(db: AsyncSession, access_token: str) -> User:
             if not user.is_active:
                 raise AuthError("Cuenta desactivada", status_code=403)
             return user
-        # sub no es numérico → podría ser un token de Supabase con formato UUID;
-        # caemos al path de Supabase abajo.
     except AuthError:
         raise
     except Exception:
-        # No es un JWT local válido → intentar con Supabase
         pass
 
     # --- Intentar validar como JWT de Supabase ---
@@ -270,7 +231,7 @@ async def update_user_profile(
         if result.scalar_one_or_none() is not None:
             raise AuthError("El correo electrónico ya está en uso", status_code=409)
 
-        if not _local_auth_enabled():
+        if not AuthServiceFactory._local_auth_enabled():
             try:
                 await supabase_update_user(access_token, email=new_email)
             except SupabaseAuthError as exc:
@@ -284,50 +245,36 @@ async def update_user_profile(
     return user
 
 
+# ---------------------------------------------------------------------------
+# Instancia por defecto (para los wrappers de funciones de módulo)
+# ---------------------------------------------------------------------------
+
+def _default_service() -> AuthService:
+    """Crea una instancia de ``AuthService`` con la estrategia del entorno."""
+    return AuthService()
+
+
+async def register_user(db: AsyncSession, data: UserRegister) -> User:
+    """Wrapper de compatibilidad — delega a ``AuthService.register_user``."""
+    return await _default_service().register_user(db, data)
+
+
+async def authenticate_user(
+    db: AsyncSession, data: UserLogin
+) -> tuple[User, SupabaseSession | None]:
+    """Wrapper de compatibilidad — delega a ``AuthService.authenticate_user``."""
+    return await _default_service().authenticate_user(db, data)
+
+
 async def change_user_password(
     db: AsyncSession,
     user: User,
     data: PasswordChange,
 ) -> None:
-    """Cambia contraseña verificando la actual vía Supabase."""
-    if data.current_password == data.new_password:
-        raise AuthError("La nueva contraseña debe ser diferente a la actual", status_code=400)
-
-    if _local_auth_enabled():
-        if not user.password_hash or not verify_password(data.current_password, user.password_hash):
-            raise AuthError("La contraseña actual es incorrecta", status_code=400)
-        user.password_hash = get_password_hash(data.new_password)
-        await db.commit()
-        return
-
-    try:
-        session = await sign_in_with_password(user.email, data.current_password)
-        await supabase_update_user(session.access_token, password=data.new_password)
-    except SupabaseAuthError as exc:
-        if exc.status_code == 401:
-            raise AuthError("La contraseña actual es incorrecta", status_code=400) from exc
-        raise AuthError(exc.message, status_code=exc.status_code) from exc
+    """Wrapper de compatibilidad — delega a ``AuthService.change_user_password``."""
+    await _default_service().change_user_password(db, user, data)
 
 
 async def reset_user_password(db: AsyncSession, data: PasswordResetRequest) -> None:
-    """Restablece contraseña en modo local de desarrollo/demo."""
-    if not _local_auth_enabled():
-        raise AuthError(
-            "La recuperación local de contraseña no está habilitada. Configure Supabase para recuperación por email.",
-            status_code=503,
-        )
-
-    generic_error = "No se pudo restablecer la contraseña con los datos ingresados"
-    result = await db.execute(
-        select(User).where(
-            User.identification == data.identification,
-            User.email == data.email,
-            User.is_active.is_(True),
-        ),
-    )
-    user = result.scalar_one_or_none()
-    if user is None:
-        raise AuthError(generic_error, status_code=400)
-
-    user.password_hash = get_password_hash(data.new_password)
-    await db.commit()
+    """Wrapper de compatibilidad — delega a ``AuthService.reset_user_password``."""
+    await _default_service().reset_user_password(db, data)

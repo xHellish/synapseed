@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import enum
 
-from sqlalchemy import String, Text, Index
+from sqlalchemy import String, Text, Index, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column
 from pgvector.sqlalchemy import Vector
 
@@ -29,6 +29,7 @@ class Regulation(Base, IDMixin, TimestampMixin):
     numero: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     titulo: Mapped[str] = mapped_column(String(500), nullable=False)
     tipo: Mapped[RegulationType] = mapped_column(
+        SQLEnum(RegulationType, name="regulationtype", create_constraint=True, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         index=True,
     )

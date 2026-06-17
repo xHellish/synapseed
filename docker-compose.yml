@@ -18,6 +18,30 @@
 services:
 
   # -----------------------------------------------------------
+  # PostgreSQL 16 + pgvector — DB local para desarrollo
+  # -----------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: synapseed-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: synapseed
+      POSTGRES_USER: synapseed
+      POSTGRES_PASSWORD: synapseed
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapseed -d synapseed"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - synapseed-net
+
+  # -----------------------------------------------------------
   # Redis 7 — broker de Celery + pub/sub SSE
   # -----------------------------------------------------------
   redis:
@@ -65,6 +89,8 @@ services:
       BACKEND_CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000","http://localhost:8000","http://127.0.0.1:5173","http://127.0.0.1:3000","http://127.0.0.1:8000"]'
 
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 
@@ -111,7 +137,12 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
 
+    volumes:
+      - ./src/backend/app:/app/app
+
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 
@@ -158,6 +189,8 @@ services:
 # Volúmenes persistentes
 # ============================================
 volumes:
+  postgres_data:
+    driver: local
   redis_data:
     driver: local
   frontend_node_modules:

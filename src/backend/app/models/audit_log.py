@@ -32,7 +32,7 @@ class AuditLog(Base, IDMixin, TimestampMixin):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     action: Mapped[AuditAction] = mapped_column(
-        SQLEnum(AuditAction, name="audit_action", create_constraint=True),
+        SQLEnum(AuditAction, name="audit_action", create_constraint=True, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         index=True,
     )
