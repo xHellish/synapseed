@@ -75,7 +75,6 @@ data/exports/
 Docs/_build/
 site/
 .mkdocs/
-Docs
 
 # --- Cache de herramientas ---
 .cache/

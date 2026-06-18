@@ -12,5 +12,5 @@ export function ProtectedRoute() {
     return <Navigate to="/login" replace />
   }
 
-  return <Outlet />
+  return <Outlet />  // Outlet es el placeholder para las rutas hijas protegidas
 }
