@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, Check, Leaf, Loader2, Search, Shield, Sparkles } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronUp, Leaf, Loader2, Mail, MapPin, Phone, Search, Shield, Sparkles } from 'lucide-react'
 
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
@@ -141,24 +141,31 @@ function badgeClass(color: 'green' | 'blue' | 'amber') {
   return 'bg-[#F59E0B] text-white'
 }
 
-function ProductCard({ product }: { product: ReturnType<typeof buildProductComparisons>[number] }) {
+function ProductCard({
+  product,
+  providers,
+}: {
+  product: ReturnType<typeof buildProductComparisons>[number]
+  providers: NormalizedProvider[]
+}) {
+  const [showDetails, setShowDetails] = useState(false)
+  const [showContact, setShowContact] = useState(false)
+
+  const productProviders = providers.filter((p) => p.productId === product.productId)
+  const hasProvider = productProviders.length > 0
+
   return (
-    <Panel className="relative min-h-[330px] p-7">
+    <Panel className="relative p-7 flex flex-col">
       <span className={cn('absolute right-6 top-6 rounded-full px-5 py-2 text-sm font-bold', badgeClass(product.badgeColor))}>
         {product.badge}
       </span>
+
+      {/* Información esencial */}
       <h3 className="mt-12 text-2xl font-bold text-[#111827]">{product.name}</h3>
-      {product.registrante && product.registrante !== 'No disponible' && (
-        <p className="mt-1.5 text-base font-semibold text-[#6B7280]">Registrante: {product.registrante}</p>
-      )}
       <dl className="mt-5 space-y-4 text-xl leading-7">
         <div>
           <dt className="font-semibold text-[#6B7280]">Tipo</dt>
           <dd className="text-[#111827]">{product.type}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold text-[#6B7280]">Compatibilidad con el cultivo</dt>
-          <dd className="text-[#111827]">{product.compatibility}</dd>
         </div>
         <div>
           <dt className="font-semibold text-[#6B7280]">Precio estimado</dt>
@@ -169,6 +176,135 @@ function ProductCard({ product }: { product: ReturnType<typeof buildProductCompa
           <dd className="text-[#111827]">{product.availability}</dd>
         </div>
       </dl>
+
+      {/* Botones de acción */}
+      <div className="mt-6 flex flex-col gap-2">
+        <button
+          onClick={() => setShowContact((prev) => !prev)}
+          disabled={!hasProvider}
+          className={cn(
+            'flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors',
+            hasProvider
+              ? 'bg-[#16A34A] text-white hover:bg-[#15803D]'
+              : 'cursor-not-allowed bg-[#E5E7EB] text-[#9CA3AF]',
+          )}
+        >
+          <Phone className="h-4 w-4" />
+          {hasProvider ? 'Contactar proveedor' : 'Sin proveedor disponible'}
+        </button>
+
+        <button
+          onClick={() => setShowDetails((prev) => !prev)}
+          className="flex items-center justify-center gap-2 rounded-xl border border-[#E5E7EB] px-4 py-2.5 text-sm font-semibold text-[#374151] transition-colors hover:bg-[#F9FAFB]"
+        >
+          {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          {showDetails ? 'Ocultar detalles' : 'Ver más detalles'}
+        </button>
+      </div>
+
+      {/* Panel de contacto */}
+      {showContact && hasProvider && (
+        <div className="mt-4 rounded-xl border border-[#D1FAE5] bg-[#F0FDF4] p-4 space-y-3">
+          {productProviders.map((prov) => (
+            <div key={prov.id} className="space-y-2">
+              <p className="font-semibold text-[#166534]">{prov.name}</p>
+              {prov.phone && prov.phone !== 'No disponible' && (
+                <a href={`tel:${prov.phone}`} className="flex items-center gap-2 text-sm text-[#374151] hover:text-[#16A34A]">
+                  <Phone className="h-3.5 w-3.5 shrink-0 text-[#16A34A]" />
+                  {prov.phone}
+                </a>
+              )}
+              {prov.email && prov.email !== 'No disponible' && (
+                <a href={`mailto:${prov.email}`} className="flex items-center gap-2 text-sm text-[#374151] hover:text-[#16A34A]">
+                  <Mail className="h-3.5 w-3.5 shrink-0 text-[#16A34A]" />
+                  {prov.email}
+                </a>
+              )}
+              {prov.location && prov.location !== 'No disponible' && (
+                <span className="flex items-center gap-2 text-sm text-[#6B7280]">
+                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  {prov.location}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Panel de detalles adicionales */}
+      {showDetails && (
+        <div className="mt-4 space-y-4 border-t border-[#F3F4F6] pt-4">
+          {product.registrante && product.registrante !== 'No disponible' && (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-[#6B7280]">Registrante</p>
+              <p className="mt-0.5 text-sm text-[#374151]">{product.registrante}</p>
+            </div>
+          )}
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-[#6B7280]">Compatibilidad con el cultivo</p>
+            <p className="mt-0.5 text-sm text-[#374151]">{product.compatibility}</p>
+          </div>
+          {product.justification && (
+            <div className="rounded-lg bg-[#F9FAFB] p-3">
+              <p className="text-xs italic text-[#4B5563] leading-relaxed">&ldquo;{product.justification}&rdquo;</p>
+            </div>
+          )}
+          {product.ventajas.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-[#16A34A]">Ventajas</p>
+              <ul className="space-y-1">
+                {product.ventajas.map((v, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-xs text-[#374151]">
+                    <Check className="mt-0.5 h-3 w-3 shrink-0 text-[#16A34A]" />
+                    {v}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {product.riesgos.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-[#F59E0B]">Riesgos</p>
+              <ul className="space-y-1">
+                {product.riesgos.map((r, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-xs text-[#374151]">
+                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-[#F59E0B]" />
+                    {r}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {product.recomendacion_uso_general && (
+            <div className="rounded-lg bg-[#F0FDF4] p-3">
+              <p className="mb-1 text-xs font-bold uppercase tracking-wide text-[#166534]">Uso recomendado</p>
+              <p className="text-xs text-[#166534] leading-relaxed">{product.recomendacion_uso_general}</p>
+            </div>
+          )}
+          <div className="space-y-2 border-t border-[#F3F4F6] pt-3 text-xs text-[#6B7280]">
+            <div className="flex justify-between">
+              <span>Dosis:</span>
+              <span className="font-semibold text-[#374151]">{product.dosis || 'No disponible'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Precio Est.:</span>
+              <span className="font-semibold text-[#374151]">
+                {product.precio_estimado !== undefined && product.precio_estimado !== null
+                  ? `${product.precio_estimado.toLocaleString('es-CR')} ₡`
+                  : 'No disponible'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Plazo de espera:</span>
+              <span className="font-semibold text-[#374151]">
+                {product.intervalo_seguridad !== undefined && product.intervalo_seguridad !== null
+                  ? `${product.intervalo_seguridad} días`
+                  : 'No aplica'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </Panel>
   )
 }
@@ -414,82 +550,7 @@ export function CaseWizardStep3() {
           <>
             <div className="grid gap-7 lg:grid-cols-3">
               {products.map((product) => (
-                <ProductCard key={product.productId} product={product} />
-              ))}
-            </div>
-
-            <div className="mt-9 grid gap-7 lg:grid-cols-3">
-              {products.map((product) => (
-                <Panel key={product.productId} className="p-6 flex flex-col gap-4">
-                  {/* Justificación del agente */}
-                  <div className="border-b border-[#F3F4F6] pb-4">
-                    <p className="text-sm italic text-[#4B5563] leading-relaxed break-words whitespace-pre-wrap">
-                      &ldquo;{product.justification}&rdquo;
-                    </p>
-                  </div>
-
-                  {/* Ventajas */}
-                  {product.ventajas.length > 0 && (
-                    <div>
-                      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-[#16A34A]">Ventajas</p>
-                      <ul className="space-y-1">
-                        {product.ventajas.map((v, i) => (
-                          <li key={i} className="flex items-start gap-1.5 text-xs text-[#374151]">
-                            <Check className="mt-0.5 h-3 w-3 shrink-0 text-[#16A34A]" />
-                            {v}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Riesgos */}
-                  {product.riesgos.length > 0 && (
-                    <div>
-                      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-[#F59E0B]">Riesgos</p>
-                      <ul className="space-y-1">
-                        {product.riesgos.map((r, i) => (
-                          <li key={i} className="flex items-start gap-1.5 text-xs text-[#374151]">
-                            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-[#F59E0B]" />
-                            {r}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Recomendación de uso */}
-                  {product.recomendacion_uso_general && (
-                    <div className="rounded-lg bg-[#F0FDF4] p-3">
-                      <p className="mb-1 text-xs font-bold uppercase tracking-wide text-[#166534]">Uso recomendado</p>
-                      <p className="text-xs text-[#166534] leading-relaxed">{product.recomendacion_uso_general}</p>
-                    </div>
-                  )}
-
-                  {/* Datos técnicos */}
-                  <div className="space-y-2 border-t border-[#F3F4F6] pt-3 text-xs text-[#6B7280]">
-                    <div className="flex justify-between">
-                      <span>Dosis:</span>
-                      <span className="font-semibold text-[#374151]">{product.dosis || 'No disponible'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Precio Est.:</span>
-                      <span className="font-semibold text-[#374151]">
-                        {product.precio_estimado !== undefined && product.precio_estimado !== null
-                          ? `${product.precio_estimado.toLocaleString('es-CR')} ₡`
-                          : 'No disponible'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Plazo de espera:</span>
-                      <span className="font-semibold text-[#374151]">
-                        {product.intervalo_seguridad !== undefined && product.intervalo_seguridad !== null
-                          ? `${product.intervalo_seguridad} días`
-                          : 'No aplica'}
-                      </span>
-                    </div>
-                  </div>
-                </Panel>
+                <ProductCard key={product.productId} product={product} providers={providerList} />
               ))}
             </div>
 
