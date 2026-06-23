@@ -226,6 +226,7 @@ export function CaseWizardStep3() {
   } | null>(null)
 
   useEffect(() => {
+    if (isDemo) return // en demo, el estado lo maneja la animacion simulada de abajo
     if (recommendation) {
       setPipelineState({
         status: recommendation.status,
@@ -233,7 +234,26 @@ export function CaseWizardStep3() {
         error_message: recommendation.error_message,
       })
     }
-  }, [recommendation])
+  }, [recommendation, isDemo])
+
+  // Modo demo (sales pitch): simula el avance de los 4 agentes en ~2s y luego muestra
+  // las recomendaciones falsas, sin llamar al backend ni esperar al pipeline real.
+  useEffect(() => {
+    if (!isDemo) return
+    const steps = ['context_analyzer', 'researcher', 'legal_validator', 'synthesizer']
+    setPipelineState({ status: 'processing', current_step: steps[0], error_message: null })
+    const timers = steps.map((step, i) =>
+      window.setTimeout(() => {
+        setPipelineState({ status: 'processing', current_step: step, error_message: null })
+      }, i * 500),
+    )
+    timers.push(
+      window.setTimeout(() => {
+        setPipelineState({ status: 'completed', current_step: null, error_message: null })
+      }, steps.length * 500),
+    )
+    return () => timers.forEach((t) => clearTimeout(t))
+  }, [isDemo])
 
   // Mientras la recomendacion esta pending/processing, consulta el detalle cada segundo
   // (polling) y actualiza el cache; se detiene en cuanto pasa a completed/failed.

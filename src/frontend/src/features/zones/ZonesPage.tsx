@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom'
 
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
+import { DEMO_MODE } from '@/lib/demo'
+import { useDemoZonesStore } from '@/stores/demoZonesStore'
 import { IconStat, PageHeader, Panel, SynapButton } from '@/components/ui/prototype'
 
 interface Zone {
@@ -29,7 +31,10 @@ export function ZonesPage() {
   const [toastTitle, setToastTitle] = useState('')
   const [toastDescription, setToastDescription] = useState('')
 
-  const { data: zones = [], isLoading } = useQuery<Zone[]>({
+  const demoZones = useDemoZonesStore((state) => state.zones)
+  const removeDemoZone = useDemoZonesStore((state) => state.removeZone)
+
+  const { data: apiZones = [], isLoading: apiLoading } = useQuery<Zone[]>({
     queryKey: ['zones'],
     queryFn: async () => {
       const response = await axios.get('/api/v1/zones', {
@@ -37,7 +42,22 @@ export function ZonesPage() {
       })
       return response.data
     },
+    enabled: !DEMO_MODE && !!token,
   })
+
+  const zones: Zone[] = DEMO_MODE ? demoZones : apiZones
+  const isLoading = DEMO_MODE ? false : apiLoading
+
+  const handleDelete = (id: string) => {
+    if (DEMO_MODE) {
+      removeDemoZone(id)
+      setToastTitle('Zona eliminada')
+      setToastDescription('La zona fue eliminada correctamente.')
+      setToastOpen(true)
+      return
+    }
+    void deleteZoneMutation.mutateAsync(id)
+  }
 
   const deleteZoneMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -127,7 +147,7 @@ export function ZonesPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => void deleteZoneMutation.mutateAsync(zone.id)}
+                              onClick={() => handleDelete(zone.id)}
                               className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-white text-[#DC2626] ring-1 ring-[#E5E7EB] transition hover:bg-[#FEF2F2]"
                               aria-label="Eliminar zona"
                             >

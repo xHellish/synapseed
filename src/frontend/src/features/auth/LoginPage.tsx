@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -12,6 +12,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { SynapButton, TextField } from '@/components/ui/prototype'
 import { buttonClasses } from '@/components/ui/prototypeStyles'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { DEMO_MODE, DEMO_TOKEN, DEMO_USER } from '@/lib/demo'
 import { AuthLayout } from './AuthLayout'
 
 const loginSchema = z.object({
@@ -86,6 +87,16 @@ export function LoginPage() {
     return `${digits.slice(0, 1)} ${digits.slice(1, 5)} ${digits.slice(5)}`.trimEnd()
   }
 
+  // Modo demo: cualquier credencial entra con un usuario falso, sin llamar a Supabase
+  const handleDemoLogin = (event: FormEvent) => {
+    event.preventDefault()
+    login(DEMO_TOKEN, DEMO_USER)
+    setToastTitle('Inicio de sesión exitoso')
+    setToastDescription('Redirigiendo a su zona protegida...')
+    setToastOpen(true)
+    window.setTimeout(() => navigate('/zones'), 300)
+  }
+
   const onSubmit = async (values: LoginFormValues) => {
     try {
       const rawIdentification = values.identification.replace(/\s/g, '')
@@ -142,7 +153,7 @@ export function LoginPage() {
         title="Iniciar sesión"
         subtitle="Ingrese sus credenciales para acceder a su cuenta"
       >
-        <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form className="mt-8 space-y-5" onSubmit={DEMO_MODE ? handleDemoLogin : handleSubmit(onSubmit)} noValidate>
           <TextField
             label="Número de identificación:"
             icon={UserRound}

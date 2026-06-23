@@ -9,6 +9,8 @@ import { Info } from 'lucide-react'
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { useWizardStore } from '@/stores/wizardStore'
+import { DEMO_MODE, DEMO_CROPS } from '@/lib/demo'
+import { useDemoZonesStore } from '@/stores/demoZonesStore'
 import { CaseStepper, PageHeader, Panel, SelectField, SynapButton, TextField } from '@/components/ui/prototype'
 import {
   HUMIDITY_OPTIONS,
@@ -65,7 +67,9 @@ export function CaseWizardStep1() {
 
   const watchedFincaId = useWatch({ control, name: 'finca_id' })
 
-  const { data: fincas = [] } = useQuery<ZoneOption[]>({
+  const demoZones = useDemoZonesStore((state) => state.zones)
+
+  const { data: apiFincas = [] } = useQuery<ZoneOption[]>({
     queryKey: ['user', 'zones'],
     queryFn: async () => {
       const response = await axios.get('/api/v1/zones', {
@@ -73,17 +77,22 @@ export function CaseWizardStep1() {
       })
       return response.data
     },
-    enabled: !!token,
+    enabled: !DEMO_MODE && !!token,
   })
 
-  const { data: cropOptions = [] } = useQuery<CropOption[]>({
+  const fincas: ZoneOption[] = DEMO_MODE ? demoZones : apiFincas
+
+  const { data: apiCropOptions = [] } = useQuery<CropOption[]>({
     queryKey: ['catalogs', 'crops'],
     queryFn: async () => {
       const response = await axios.get('/api/v1/catalogs/crops')
       return response.data
     },
     staleTime: 5 * 60 * 1000,
+    enabled: !DEMO_MODE,
   })
+
+  const cropOptions: CropOption[] = DEMO_MODE ? DEMO_CROPS : apiCropOptions
 
   const fincaOptions = useMemo(
     () => [

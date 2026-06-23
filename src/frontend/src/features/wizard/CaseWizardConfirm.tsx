@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
@@ -7,6 +7,8 @@ import { Loader2 } from 'lucide-react'
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { useWizardStore } from '@/stores/wizardStore'
+import { DEMO_MODE } from '@/lib/demo'
+import { useDemoZonesStore } from '@/stores/demoZonesStore'
 import { CaseStepper, PageHeader, Panel, SynapButton } from '@/components/ui/prototype'
 
 interface ZoneSummary {
@@ -70,12 +72,15 @@ export function CaseWizardConfirm() {
   const setStep = useWizardStore((state) => state.setStep)
   const token = useAuthStore((state) => state.token)
   const navigate = useNavigate()
+  const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
     setStep(2)
   }, [setStep])
 
-  const { data: zones = [] } = useQuery<ZoneSummary[]>({
+  const demoZones = useDemoZonesStore((state) => state.zones)
+
+  const { data: apiZones = [] } = useQuery<ZoneSummary[]>({
     queryKey: ['user', 'zones'],
     queryFn: async () => {
       const response = await axios.get('/api/v1/zones', {
@@ -83,10 +88,12 @@ export function CaseWizardConfirm() {
       })
       return response.data
     },
-    enabled: !!token,
+    enabled: !DEMO_MODE && !!token,
     staleTime: 0,
     refetchOnMount: true,
   })
+
+  const zones: ZoneSummary[] = DEMO_MODE ? demoZones : apiZones
 
   const fincaLabel = (() => {
     if (!data.finca_id) return data.finca_name ?? 'No disponible'
@@ -114,6 +121,14 @@ export function CaseWizardConfirm() {
   })
 
   const handleConfirm = () => {
+    // Modo demo: no se llama al backend; se va directo al resultado simulado (~2s de animacion)
+    if (DEMO_MODE) {
+      setConfirming(true)
+      setStep(3)
+      window.setTimeout(() => navigate('/recommendations/demo'), 700)
+      return
+    }
+
     const matchedZone = zones.find((zone) => String(zone.id) === String(data.finca_id))
     const zoneId = matchedZone ? Number(matchedZone.id) : undefined
 
@@ -135,7 +150,7 @@ export function CaseWizardConfirm() {
     mutation.mutate(payload)
   }
 
-  const isPending = mutation.isPending
+  const isPending = confirming || mutation.isPending
   const matchedZoneForDisplay = zones.find((zone) => String(zone.id) === String(data.finca_id))
   const effectiveHumidity = data.humidity || matchedZoneForDisplay?.humidity
   const effectiveTemperature = data.temperature || matchedZoneForDisplay?.temperature

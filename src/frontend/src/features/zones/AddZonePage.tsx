@@ -9,6 +9,8 @@ import * as Toast from '@radix-ui/react-toast'
 
 import { AppLayout } from '@/features/layout/AppLayout'
 import { useAuthStore } from '@/stores/authStore'
+import { DEMO_MODE } from '@/lib/demo'
+import { useDemoZonesStore } from '@/stores/demoZonesStore'
 import { HUMIDITY_OPTIONS, SOIL_OPTIONS, TEMPERATURE_OPTIONS, WATER_OPTIONS } from '@/features/wizard/constants'
 import { PageHeader, Panel, SelectField, SynapButton, TextField } from '@/components/ui/prototype'
 
@@ -33,6 +35,8 @@ export function AddZonePage() {
   const location = useLocation()
   const queryClient = useQueryClient()
   const editingZone = (location.state as ZoneState | null)?.zone
+  const addDemoZone = useDemoZonesStore((state) => state.addZone)
+  const updateDemoZone = useDemoZonesStore((state) => state.updateZone)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastTitle, setToastTitle] = useState('')
   const [toastDescription, setToastDescription] = useState('')
@@ -83,6 +87,21 @@ export function AddZonePage() {
   })
 
   const onSubmit = async (values: AddZoneForm) => {
+    // Modo demo: la finca se guarda en memoria y aparece al instante en el wizard
+    if (DEMO_MODE) {
+      if (editingZone?.id) {
+        updateDemoZone(editingZone.id, values)
+      } else {
+        addDemoZone(values)
+      }
+      setToastTitle(editingZone ? 'Zona actualizada' : 'Zona creada')
+      setToastDescription(
+        editingZone ? 'Los cambios se guardaron correctamente.' : 'La nueva zona fue registrada correctamente.',
+      )
+      setToastOpen(true)
+      window.setTimeout(() => navigate('/zones'), 400)
+      return
+    }
     await saveMutation.mutateAsync(values)
   }
 
