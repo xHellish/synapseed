@@ -121,11 +121,12 @@ export function CaseWizardConfirm() {
   })
 
   const handleConfirm = () => {
-    // Modo demo: no se llama al backend; se va directo al resultado simulado (~2s de animacion)
+    // Modo demo: no se llama al backend; se va directo al resultado simulado.
+    // runDemo activa la animacion de los agentes solo en esta navegacion (no al volver).
     if (DEMO_MODE) {
       setConfirming(true)
       setStep(3)
-      window.setTimeout(() => navigate('/recommendations/demo'), 700)
+      window.setTimeout(() => navigate('/recommendations/demo', { state: { runDemo: true } }), 700)
       return
     }
 

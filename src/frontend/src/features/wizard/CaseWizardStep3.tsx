@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, Check, ChevronDown, ChevronUp, Leaf, Loader2, Mail, MapPin, Phone, Search, Shield, Sparkles } from 'lucide-react'
 
 import { AppLayout } from '@/features/layout/AppLayout'
@@ -360,9 +360,13 @@ export function CaseWizardStep3() {
   const token = useAuthStore((state) => state.token)
   const setStep = useWizardStore((state) => state.setStep)
   const navigate = useNavigate()
+  const location = useLocation()
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const isDemo = !id || id === 'demo'  // modo demo: muestra datos de ejemplo sin backend
+  // La animacion de los agentes solo corre al llegar desde "Confirmar" (state.runDemo).
+  // Al volver desde Proveedores (sin ese state) se muestran los resultados de una vez.
+  const runDemoAnimation = isDemo && (location.state as { runDemo?: boolean } | null)?.runDemo === true
 
   useEffect(() => {
     setStep(3)
@@ -428,6 +432,13 @@ export function CaseWizardStep3() {
   // Un único intervalo deriva la fase, la subtarea y el % a partir del tiempo transcurrido.
   useEffect(() => {
     if (!isDemo) return
+    // Si no venimos de "Confirmar", saltamos la animacion y mostramos los resultados ya.
+    if (!runDemoAnimation) {
+      setPipelineState({ status: 'completed', current_step: null, error_message: null })
+      setDemoProgress(100)
+      setDemoDetail(null)
+      return
+    }
     const total = DEMO_PIPELINE_PHASES.length * DEMO_PHASE_MS
     const start = Date.now()
     setPipelineState({ status: 'processing', current_step: DEMO_PIPELINE_PHASES[0].key, error_message: null })
@@ -463,7 +474,7 @@ export function CaseWizardStep3() {
     }, 200)
 
     return () => window.clearInterval(tick)
-  }, [isDemo])
+  }, [isDemo, runDemoAnimation])
 
   // Mientras la recomendacion esta pending/processing, consulta el detalle cada segundo
   // (polling) y actualiza el cache; se detiene en cuanto pasa a completed/failed.

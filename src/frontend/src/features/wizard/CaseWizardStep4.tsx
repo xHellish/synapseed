@@ -110,7 +110,7 @@ export function CaseWizardStep4() {
           subtitle="Revise las opciones recomendadas basadas en su contexto"
           className="mb-5"
         />
-        <CaseStepper step={4} />
+        <CaseStepper step={4} onStepClick={(s) => { if (s === 3) navigate(`/recommendations/${id ?? 'demo'}`) }} />
 
         <div className="space-y-11">
           {providers.map((provider) => (
