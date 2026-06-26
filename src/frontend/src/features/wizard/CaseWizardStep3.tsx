@@ -449,8 +449,16 @@ export function CaseWizardStep3() {
         phase.details.length - 1,
         Math.floor(within / (DEMO_PHASE_MS / phase.details.length)),
       )
+      // Curva no lineal: arranca rapido, frena en la mitad, se arrastra al final.
+      // t=0→10%: sube a 15%; t=10→50%: sube a 60%; t=50→80%: sube a 82%; t=80→100%: llega a 94%.
+      const t = elapsed / total
+      let eased: number
+      if      (t < 0.10) eased = t / 0.10 * 15
+      else if (t < 0.50) eased = 15 + (t - 0.10) / 0.40 * 45
+      else if (t < 0.80) eased = 60 + (t - 0.50) / 0.30 * 22
+      else               eased = 82 + (t - 0.80) / 0.20 * 12
       setPipelineState({ status: 'processing', current_step: phase.key, error_message: null })
-      setDemoProgress(Math.min(98, Math.round((elapsed / total) * 100)))
+      setDemoProgress(Math.round(eased))
       setDemoDetail(phase.details[detailIndex])
     }, 200)
 
