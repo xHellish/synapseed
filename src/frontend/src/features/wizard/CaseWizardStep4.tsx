@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Leaf, Mail, MapPin, Phone } from 'lucide-react'
 
 import { AppLayout } from '@/features/layout/AppLayout'
@@ -45,6 +45,7 @@ export function CaseWizardStep4() {
   const token = useAuthStore((state) => state.token)
   const setStep = useWizardStore((state) => state.setStep)
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const isDemo = !id || id === 'demo'
 
   useEffect(() => {
@@ -76,7 +77,7 @@ export function CaseWizardStep4() {
     return (
       <AppLayout>
         <section className="max-w-[1140px]">
-          <CaseStepper step={4} />
+          <CaseStepper step={4} onStepClick={(s) => { if (s === 3) navigate(`/recommendations/${id ?? 'demo'}`) }} />
           <Panel className="flex min-h-[360px] items-center justify-center p-10">
             <div className="flex flex-col items-center gap-4 text-[#6B7280]">
               <Leaf className="h-12 w-12 animate-pulse text-[#16A34A]" />
@@ -92,7 +93,7 @@ export function CaseWizardStep4() {
     return (
       <AppLayout>
         <section className="max-w-[1140px]">
-          <CaseStepper step={4} />
+          <CaseStepper step={4} onStepClick={(s) => { if (s === 3) navigate(`/recommendations/${id ?? 'demo'}`) }} />
           <Panel className="p-10 text-center">
             <p className="text-lg text-[#6B7280]">No se encontraron proveedores disponibles.</p>
           </Panel>

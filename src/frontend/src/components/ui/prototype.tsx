@@ -174,9 +174,10 @@ export function SelectField({
 
 interface CaseStepperProps {
   step: number
+  onStepClick?: (stepNumber: number) => void
 }
 
-export function CaseStepper({ step }: CaseStepperProps) {
+export function CaseStepper({ step, onStepClick }: CaseStepperProps) {
   const steps = ['Datos del caso', 'Confirmación', 'Recomendaciones', 'Proveedores']
 
   return (
@@ -185,19 +186,31 @@ export function CaseStepper({ step }: CaseStepperProps) {
         const number = index + 1
         const active = number === step
         const done = number < step
+        const clickable = done && !!onStepClick
 
         return (
           <React.Fragment key={label}>
-            <div className="flex shrink-0 items-center gap-2">
+            <div
+              className={cn('flex shrink-0 items-center gap-2', clickable && 'cursor-pointer')}
+              onClick={clickable ? () => onStepClick(number) : undefined}
+              role={clickable ? 'button' : undefined}
+            >
               <span
                 className={cn(
-                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base font-bold',
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base font-bold transition-opacity',
                   done || active ? 'bg-[#16A34A] text-white' : 'bg-[#E9EDF3] text-[#111827]',
+                  clickable && 'hover:opacity-80',
                 )}
               >
                 {number}
               </span>
-              <span className={cn('whitespace-nowrap text-sm font-normal md:text-base', active || done ? 'font-bold text-[#111827]' : 'text-[#6B7280]')}>
+              <span
+                className={cn(
+                  'whitespace-nowrap text-sm font-normal md:text-base',
+                  active || done ? 'font-bold text-[#111827]' : 'text-[#6B7280]',
+                  clickable && 'hover:underline',
+                )}
+              >
                 {label}
               </span>
             </div>
