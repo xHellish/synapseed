@@ -21,61 +21,65 @@ import {
 const DEMO_RECOMMENDATION: RecommendationData = {
   id: 0,
   ticket_id: 'demo',
-  crop: 'Tomate',
+  crop: 'Café',
   crop_stage: 'Floración',
-  problem: 'Hongo en las hojas',
+  problem: 'Roya del café (hongo en las hojas)',
   status: 'completed',
   current_step: null,
   error_message: null,
-  max_budget_per_liter: 10000,
+  max_budget_per_liter: 25000,
   products: [
     {
       rank: 1,
       product_id: 1,
-      nombre_comercial: 'FungiShield Pro',
-      justification: 'Mejor opción para el contexto indicado por su alta eficacia sistémica contra hongos foliares en tomate.',
-      dosis: '1.5 L/ha en aplicación foliar',
-      precio_estimado: 10000,
+      nombre_comercial: 'RoyaShield Sistémico',
+      justification:
+        'Mejor opción para el cafetal de altura de la Zona de los Santos: control curativo y preventivo de la roya (Hemileia vastatrix), con buena residualidad para las condiciones frías y húmedas de Tarrazú.',
+      dosis: '0.5 L/ha en aplicación foliar dirigida al follaje',
+      precio_estimado: 22000,
       toxicidad: 'azul',
-      intervalo_seguridad: 3,
-      categoria: 'Fungicida Sistémico',
-      cultivo_objetivo: 'Tomate',
-      problema_objetivo: 'Hongo en las hojas',
-      ventajas: ['Amplio espectro sistémico', 'Residualidad de 14 días', 'Registrado SFE para tomate'],
-      riesgos: ['Respetar intervalo de seguridad de 3 días', 'Rotar modo de acción para evitar resistencia'],
-      recomendacion_uso_general: 'Aplicar en las horas de menor temperatura. Usar equipo de protección personal (EPP) según etiqueta SFE.',
+      intervalo_seguridad: 21,
+      categoria: 'Fungicida sistémico (triazol + estrobilurina)',
+      cultivo_objetivo: 'Café',
+      problema_objetivo: 'Roya del café',
+      ventajas: ['Acción curativa y preventiva', 'Alta residualidad en clima húmedo', 'Registrado en el SFE para café'],
+      riesgos: ['Respetar el intervalo de seguridad de 21 días antes de cosecha', 'Rotar el modo de acción para evitar resistencia de la roya'],
+      recomendacion_uso_general:
+        'Aplicar al primer signo de roya, en horas de menor temperatura. Usar equipo de protección personal (EPP) según la etiqueta del SFE. No exceder dos aplicaciones por ciclo.',
     },
     {
       rank: 2,
       product_id: 2,
-      nombre_comercial: 'AgriProtect Plus',
-      justification: 'Alternativa viable cuando se requiere producto de contacto con menor costo por hectárea.',
-      dosis: '2 L/ha en aplicación foliar',
-      precio_estimado: 7000,
-      toxicidad: 'azul',
-      intervalo_seguridad: 5,
-      categoria: 'Fungicida de contacto',
-      cultivo_objetivo: 'Tomate',
-      problema_objetivo: 'Hongo en las hojas',
-      ventajas: ['Precio accesible', 'Buen control preventivo', 'Compatible con otros fungicidas'],
-      riesgos: ['Requiere mayor frecuencia de aplicación', 'Sensible al lavado por lluvia'],
-      recomendacion_uso_general: 'Ideal como tratamiento preventivo antes de períodos lluviosos. Aplicar cada 7-10 días.',
+      nombre_comercial: 'CuproCafé Preventivo',
+      justification: 'Alternativa cúprica de contacto, ideal como tratamiento preventivo antes de la época lluviosa y con menor costo por hectárea.',
+      dosis: '2.5 kg/ha en aplicación foliar preventiva',
+      precio_estimado: 12000,
+      toxicidad: 'verde',
+      intervalo_seguridad: 14,
+      categoria: 'Fungicida de contacto (cúprico)',
+      cultivo_objetivo: 'Café',
+      problema_objetivo: 'Roya del café',
+      ventajas: ['Menor costo por hectárea', 'Buen control preventivo', 'Banda verde (baja toxicidad)'],
+      riesgos: ['Solo preventivo: no cura infecciones avanzadas', 'Se lava con lluvia fuerte y requiere reaplicación'],
+      recomendacion_uso_general:
+        'Aplicar de forma preventiva al inicio de las lluvias y repetir cada 21-28 días. Excelente para alternar con el sistémico y manejar resistencia.',
     },
     {
       rank: 3,
       product_id: 3,
-      nombre_comercial: 'EcoFungi Natural',
-      justification: 'Opción orgánica con menor riesgo ambiental, apta para producción con certificación.',
-      dosis: '3-4 aplicaciones semanales según severidad',
-      precio_estimado: 10000,
+      nombre_comercial: 'BioRoya Trichoderma',
+      justification: 'Opción biológica a base de Trichoderma, de mínimo riesgo ambiental y apta para café con certificación sostenible.',
+      dosis: '1.5 L/ha, 3-4 aplicaciones según severidad',
+      precio_estimado: 9000,
       toxicidad: 'verde',
       intervalo_seguridad: 1,
-      categoria: 'Fungicida orgánico',
-      cultivo_objetivo: 'Tomate',
-      problema_objetivo: 'Hongo en las hojas',
-      ventajas: ['Banda verde (mínima toxicidad)', 'Intervalo de seguridad de 1 día', 'Apto para producción orgánica'],
-      riesgos: ['Eficacia menor en infestaciones severas', 'Mayor frecuencia de aplicación necesaria'],
-      recomendacion_uso_general: 'Usar en etapas tempranas o como complemento de un programa integrado. Consultar agrónomo certificado.',
+      categoria: 'Fungicida biológico',
+      cultivo_objetivo: 'Café',
+      problema_objetivo: 'Roya del café',
+      ventajas: ['Banda verde (mínima toxicidad)', 'Intervalo de seguridad de 1 día', 'Apto para café con certificación sostenible'],
+      riesgos: ['Eficacia menor en infestaciones severas', 'Requiere aplicaciones más frecuentes'],
+      recomendacion_uso_general:
+        'Usar en etapas tempranas o como complemento de un programa integrado de manejo de roya. Consultar con un agrónomo certificado para el plan de rotación.',
     },
   ],
 }
@@ -83,32 +87,75 @@ const DEMO_RECOMMENDATION: RecommendationData = {
 const DEMO_PROVIDERS: NormalizedProvider[] = normalizeProviders([
   {
     id: 1,
-    nombre: 'AgroSuministros del Valle',
+    nombre: 'AgroServicios Tarrazú',
     product_id: 1,
-    producto_asociado: 'FungiShield Pro',
-    telefono: '2345 - 6789',
-    correo: 'ventas@agrovalle.cr',
-    ubicacion: 'Cartago, Pacayas',
+    producto_asociado: 'RoyaShield Sistémico',
+    telefono: '2546 - 6789',
+    correo: 'ventas@agrotarrazu.cr',
+    ubicacion: 'San Marcos de Tarrazú',
   },
   {
     id: 2,
-    nombre: 'Distribuidora Agrícola Central',
+    nombre: 'Insumos del Café Dota',
     product_id: 2,
-    producto_asociado: 'AgriProtect Plus',
-    telefono: '2345 - 6782',
-    correo: 'info@agricentral.cr',
-    ubicacion: 'Cartago, El Carmen',
+    producto_asociado: 'CuproCafé Preventivo',
+    telefono: '2541 - 6782',
+    correo: 'info@insumosdota.cr',
+    ubicacion: 'Santa María de Dota',
   },
   {
     id: 3,
-    nombre: 'Insumos Orgánicos La Esperanza',
+    nombre: 'BioInsumos Los Santos',
     product_id: 3,
-    producto_asociado: 'EcoFungi Natural',
-    telefono: '2345 - 6783',
-    correo: 'ventas@laesperanza.cr',
-    ubicacion: 'Cartago, Taras',
+    producto_asociado: 'BioRoya Trichoderma',
+    telefono: '2546 - 6783',
+    correo: 'ventas@bioinsumosls.cr',
+    ubicacion: 'San Pablo de León Cortés',
   },
 ])
+
+// Modo demo: duración de cada fase del pipeline y las "subtareas" que se muestran
+// rotando dentro de cada fase, para que se vea que el agente está trabajando.
+const DEMO_PHASE_MS = 5000
+
+const DEMO_PIPELINE_PHASES: { key: string; details: string[] }[] = [
+  {
+    key: 'context_analyzer',
+    details: [
+      'Leyendo las condiciones de la Finca Loma Alta...',
+      'Identificando el cultivo: café de altura...',
+      'Evaluando el clima de la Zona de los Santos...',
+      'Detectando el problema: roya del café...',
+    ],
+  },
+  {
+    key: 'researcher',
+    details: [
+      'Buscando entre productos registrados en el SFE...',
+      'Comparando fungicidas para roya (Hemileia vastatrix)...',
+      'Filtrando por el presupuesto disponible...',
+      'Seleccionando candidatos compatibles con café...',
+    ],
+  },
+  {
+    key: 'legal_validator',
+    details: [
+      'Verificando el registro ante el SFE...',
+      'Validando el uso autorizado en café...',
+      'Revisando los intervalos de seguridad...',
+      'Descartando productos restringidos...',
+    ],
+  },
+  {
+    key: 'synthesizer',
+    details: [
+      'Rankeando las mejores opciones...',
+      'Generando la tabla comparativa...',
+      'Redactando justificaciones y dosis...',
+      'Preparando la recomendación final...',
+    ],
+  },
+]
 
 function getProgressInfo(status: string, step: string | null) {
   if (status === 'pending') return { percentage: 10, message: 'Iniciando pipeline de agentes...' }
@@ -361,6 +408,10 @@ export function CaseWizardStep3() {
     error_message: string | null
   } | null>(null)
 
+  // Estado solo para la animación de la demo: barra de progreso suave y subtarea actual.
+  const [demoProgress, setDemoProgress] = useState(0)
+  const [demoDetail, setDemoDetail] = useState<string | null>(null)
+
   useEffect(() => {
     if (isDemo) return // en demo, el estado lo maneja la animacion simulada de abajo
     if (recommendation) {
@@ -372,23 +423,38 @@ export function CaseWizardStep3() {
     }
   }, [recommendation, isDemo])
 
-  // Modo demo (sales pitch): simula el avance de los 4 agentes en ~2s y luego muestra
-  // las recomendaciones falsas, sin llamar al backend ni esperar al pipeline real.
+  // Modo demo (sales pitch): simula el avance de los 4 agentes con fases de 5s cada una,
+  // mostrando subtareas rotativas y una barra de progreso suave, sin llamar al backend.
+  // Un único intervalo deriva la fase, la subtarea y el % a partir del tiempo transcurrido.
   useEffect(() => {
     if (!isDemo) return
-    const steps = ['context_analyzer', 'researcher', 'legal_validator', 'synthesizer']
-    setPipelineState({ status: 'processing', current_step: steps[0], error_message: null })
-    const timers = steps.map((step, i) =>
-      window.setTimeout(() => {
-        setPipelineState({ status: 'processing', current_step: step, error_message: null })
-      }, i * 500),
-    )
-    timers.push(
-      window.setTimeout(() => {
+    const total = DEMO_PIPELINE_PHASES.length * DEMO_PHASE_MS
+    const start = Date.now()
+    setPipelineState({ status: 'processing', current_step: DEMO_PIPELINE_PHASES[0].key, error_message: null })
+    setDemoDetail(DEMO_PIPELINE_PHASES[0].details[0])
+
+    const tick = window.setInterval(() => {
+      const elapsed = Date.now() - start
+      if (elapsed >= total) {
         setPipelineState({ status: 'completed', current_step: null, error_message: null })
-      }, steps.length * 500),
-    )
-    return () => timers.forEach((t) => clearTimeout(t))
+        setDemoProgress(100)
+        setDemoDetail(null)
+        window.clearInterval(tick)
+        return
+      }
+      const phaseIndex = Math.min(DEMO_PIPELINE_PHASES.length - 1, Math.floor(elapsed / DEMO_PHASE_MS))
+      const phase = DEMO_PIPELINE_PHASES[phaseIndex]
+      const within = elapsed - phaseIndex * DEMO_PHASE_MS
+      const detailIndex = Math.min(
+        phase.details.length - 1,
+        Math.floor(within / (DEMO_PHASE_MS / phase.details.length)),
+      )
+      setPipelineState({ status: 'processing', current_step: phase.key, error_message: null })
+      setDemoProgress(Math.min(98, Math.round((elapsed / total) * 100)))
+      setDemoDetail(phase.details[detailIndex])
+    }, 200)
+
+    return () => window.clearInterval(tick)
   }, [isDemo])
 
   // Mientras la recomendacion esta pending/processing, consulta el detalle cada segundo
@@ -448,13 +514,16 @@ export function CaseWizardStep3() {
   }
 
   if (pipelineState?.status === 'pending' || pipelineState?.status === 'processing') {
-    const progress = getProgressInfo(pipelineState.status, pipelineState.current_step)
+    const baseProgress = getProgressInfo(pipelineState.status, pipelineState.current_step)
+    // En demo la barra avanza suave (demoProgress); en real usa los % por etapa.
+    const progress = isDemo ? { ...baseProgress, percentage: demoProgress } : baseProgress
     const steps = [
       { key: 'context_analyzer', name: 'Analizador de contexto', icon: Sparkles },
       { key: 'researcher', name: 'Investigador RAG', icon: Search },
       { key: 'legal_validator', name: 'Validador legal', icon: Shield },
       { key: 'synthesizer', name: 'Sintetizador IA', icon: Leaf },
     ]
+    const activeIndex = steps.findIndex((step) => step.key === pipelineState.current_step)
 
     return (
       <AppLayout>
@@ -470,6 +539,9 @@ export function CaseWizardStep3() {
               <Leaf className="mx-auto h-14 w-14 animate-pulse text-[#16A34A]" />
               <h1 className="mt-4 text-3xl font-bold text-[#111827]">Motor de agentes IA ejecutándose</h1>
               <p className="mt-3 text-lg text-[#6B7280]">{progress.message}</p>
+              {isDemo && demoDetail && (
+                <p className="mt-1 text-base italic text-[#16A34A]">{demoDetail}</p>
+              )}
             </div>
             <div className="mt-10">
               <div className="mb-3 flex items-center justify-between text-lg font-bold">
@@ -481,15 +553,26 @@ export function CaseWizardStep3() {
               </div>
             </div>
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              {steps.map((step) => {
+              {steps.map((step, index) => {
                 const Icon = step.icon
                 const active = pipelineState.current_step === step.key
+                const done = activeIndex > index // fases ya superadas (en demo van quedando en verde)
                 return (
                   <div
                     key={step.key}
-                    className={cn('rounded-xl border p-5', active ? 'border-[#16A34A] bg-[#F0FDF4]' : 'border-[#E5E7EB] bg-white')}
+                    className={cn(
+                      'rounded-xl border p-5 transition-colors',
+                      active || done ? 'border-[#16A34A] bg-[#F0FDF4]' : 'border-[#E5E7EB] bg-white',
+                    )}
                   >
-                    <Icon className={cn('h-6 w-6', active ? 'text-[#16A34A]' : 'text-[#6B7280]')} />
+                    <div className="flex items-center justify-between">
+                      <Icon className={cn('h-6 w-6', active || done ? 'text-[#16A34A]' : 'text-[#6B7280]')} />
+                      {done ? (
+                        <Check className="h-5 w-5 text-[#16A34A]" />
+                      ) : active ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-[#16A34A]" />
+                      ) : null}
+                    </div>
                     <p className="mt-3 text-lg font-bold text-[#111827]">{step.name}</p>
                   </div>
                 )
